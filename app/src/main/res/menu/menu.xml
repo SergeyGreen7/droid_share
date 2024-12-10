@@ -1,0 +1,55 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/atn_direct_enable"
+        android:icon="@drawable/ic_action_on_off"
+        android:title="@string/enable_p2p_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_create_service"
+        android:icon="@drawable/ic_action_create_service"
+        android:title="@string/create_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_discover_services"
+        android:icon="@drawable/ic_action_discover_services"
+        android:title="@string/discover_services_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_direct_discovery"
+        android:icon="@drawable/ic_action_discover_peers"
+        android:title="@string/discover_peers_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_bluetooth_discovery"
+        android:title="@string/discover_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_bluetooth_server"
+        android:title="@string/server_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_nsd_discovery"
+        android:title="@string/discover_nsd_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_create_local_service"
+        android:title="@string/create_local_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_send_nfc_message"
+        android:title="@string/send_nfc_message_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_discover_ble_devices"
+        android:title="@string/discover_ble_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_start_ble_advertising"
+        android:title="@string/start_ble_advertising"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_start_ble_service"
+        android:title="@string/start_ble_service"
+        app:showAsAction="withText" />
+</menu>

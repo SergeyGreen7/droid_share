@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">wifi_direct_5</string>
+
+    <string name="enable_p2p_button">Wi-Fi settings</string>
+    <string name="discover_peers_button">Get P2P peers</string>
+    <string name="discover_services_button">Get services</string>
+    <string name="create_service_button">Post service</string>
+    <string name="discover_bluetooth_button">Discover bluetooth</string>
+    <string name="server_bluetooth_button">Create bluetooth server</string>
+    <string name="discover_nsd_button">Discover local services</string>
+    <string name="create_local_service_button">Create local services</string>
+    <string name="send_nfc_message_button">Send NFC message</string>
+    <string name="discover_ble_button">Discover BLE devices</string>
+    <string name="start_ble_advertising">Start BLE advertising</string>
+    <string name="start_ble_service">Start BLE service</string>
+
+
+    <string name="p2p_off_warning">Enable P2P from action bar button above or system settings</string>
+    <string name="discovery_initiated">P2P Discovery started</string>
+    <string name="discovery_bluetooth_initiated">Bluetooth discovery started</string>
+
+    <string name="label_me">ME</string>
+    <string name="label_peers">PEERS</string>
+    <string name="empty_message">No devices found. Turn on P2P and perform discovery from the Action Bar</string>
+
+    <string name="connect_peer_button">Connect</string>
+    <string name="create_group_button">Group</string>
+    <string name="disconnect_peer_button">Disconnect</string>
+    <string name="get_file_button">Select File</string>
+
+    <string name="yes">yes</string>
+    <string name="no">no</string>
+    <string name="empty"></string>
+    <string name="group_owner_text">"I am a Group Owner"</string>
+    <string name="not_group_owner_text">"I am not a Group Owner"</string>
+    <string name="select_file_to_transmit">Click on \'Select File\' button to pick a local(stored) file for transmission</string>
+    <string name="client_text">This device will act as a client. </string>
+    <string name="server_text">This device will act as a server. </string>
+</resources>

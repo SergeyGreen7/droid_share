@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/activatedBackgroundIndicator"
+    android:padding="6dip"
+    android:orientation="vertical"
+    android:gravity="center">
+    <ImageView
+        android:id="@+id/icon_vd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        app:srcCompat="@drawable/machine" />
+
+    <TextView
+        android:id="@+id/device_name_vd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_horizontal"
+        tools:text="Device name" />
+    <TextView
+        android:id="@+id/device_details_vd"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:singleLine="true"
+        android:ellipsize="marquee"
+        android:gravity="center_horizontal"
+        tools:text="Device info" />
+</LinearLayout>
