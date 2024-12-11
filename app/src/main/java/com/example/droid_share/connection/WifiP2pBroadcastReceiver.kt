@@ -33,10 +33,10 @@ class WifiP2pBroadcastReceiver(
             val state = intent.getIntExtra(WifiP2pManager.EXTRA_WIFI_STATE, -1)
             if (state == WifiP2pManager.WIFI_P2P_STATE_ENABLED) {
                 // Wifi Direct mode is enabled
-                activity.setIsWifiP2pEnabled(true)
+//                activity.setIsWifiP2pEnabled(true)
             } else {
-                activity.setIsWifiP2pEnabled(false)
-                activity.resetData()
+//                activity.setIsWifiP2pEnabled(false)
+                // activity.resetData()
             }
             Log.d(TAG, "WIFI_P2P_STATE_CHANGED_ACTION, P2P state changed - $state")
         } else if (WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION == action) {
@@ -46,7 +46,7 @@ class WifiP2pBroadcastReceiver(
             // callback on PeerListListener.onPeersAvailable()
             Log.d(TAG, "WIFI_P2P_PEERS_CHANGED_ACTION, P2P peers changed")
 
-             controller.requestPeers(activity.gridView.customAdapter as PeerListListener)
+            controller.requestPeers(controller.peerScanner as PeerListListener)
 
 //            val groupInfo = intent.getParcelableExtra(String).
 //                .getParcelableExtra<Parcelable>(WifiP2pManager.EXTRA_WIFI_P2P_GROUP) as WifiP2pGroup
@@ -67,7 +67,7 @@ class WifiP2pBroadcastReceiver(
                 controller.requestConnectionInfo(activity as ConnectionInfoListener)
             } else {
                 // It's a disconnect
-                activity.resetData()
+                // activity.resetData()
             }
 
         } else if (WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION == action) {

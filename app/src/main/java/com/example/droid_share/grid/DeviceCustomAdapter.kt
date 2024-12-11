@@ -18,7 +18,7 @@ class DeviceCustomAdapter (
     private var statusUpdater : StatusUpdater,
     )
     : RecyclerView.Adapter<DeviceCustomAdapter.DeviceViewHolder>()
-    , PeerListListener {
+{
 
     private var selectedPos = RecyclerView.NO_POSITION
     private var dataSet = mutableListOf<DeviceInfo>()
@@ -58,8 +58,11 @@ class DeviceCustomAdapter (
             InfoType.TEST -> {
                 holder.icon.setImageResource(R.drawable.machine);
             }
-            InfoType.WIFI -> {
-                holder.icon.setImageResource(R.drawable.wifi_machine)
+            InfoType.WIFI_DIRECT_PEER -> {
+                holder.icon.setImageResource(R.drawable.wifi_direct_peer_machine)
+            }
+            InfoType.WIFI_DIRECT_SERVICE -> {
+                holder.icon.setImageResource(R.drawable.wifi_direct_service_machine)
             }
             InfoType.BLUETOOTH -> {
                 holder.icon.setImageResource(R.drawable.bluetooth_machine)
@@ -82,18 +85,6 @@ class DeviceCustomAdapter (
     fun updateDataSet(newDataSet: List<DeviceInfo>) {
         dataSet = newDataSet.toMutableList()
         onDataChanged()
-    }
-
-    override fun onPeersAvailable(peers: WifiP2pDeviceList?) {
-        peers?.let {
-            dataSet.clear()
-            val newDataSet = mutableListOf<DeviceInfo>()
-            peers.deviceList.forEach { device ->
-                // newDataSet.add(DeviceInfo(device.deviceName, device.deviceAddress))
-                newDataSet.add(DeviceInfo(device))
-            }
-            updateDataSet(newDataSet)
-        }
     }
 
     fun getSelectedData() : DeviceInfo? {

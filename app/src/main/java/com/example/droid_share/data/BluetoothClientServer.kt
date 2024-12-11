@@ -68,7 +68,7 @@ class BluetoothClientServer {
             client = server?.accept()
             Log.d(TAG,"bluetooth server connection done")
         } catch (e: Exception) {
-            Log.e(TAG, "Server socket's accept() method failed, $e")
+            Log.d(TAG, "BluetoothClientServer, runServer, exception happened: $e")
         }
     }
 

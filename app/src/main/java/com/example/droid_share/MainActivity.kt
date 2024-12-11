@@ -3,20 +3,17 @@ package com.example.droid_share
 import android.Manifest
 import android.annotation.SuppressLint
 import android.app.AlertDialog
+import android.app.PendingIntent
 import android.app.ProgressDialog
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
-import android.bluetooth.BluetoothGatt
-import android.bluetooth.BluetoothGattCallback
-import android.bluetooth.BluetoothGattCharacteristic
-import android.bluetooth.BluetoothGattDescriptor
 import android.bluetooth.BluetoothManager
-import android.bluetooth.BluetoothProfile
 import android.bluetooth.BluetoothServerSocket
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.net.nsd.NsdManager
 import android.net.wifi.p2p.WifiP2pDevice
 import android.net.wifi.p2p.WifiP2pInfo
@@ -29,6 +26,7 @@ import android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_STATE_CHANGED_ACTION
 import android.net.wifi.p2p.WifiP2pManager.WIFI_P2P_THIS_DEVICE_CHANGED_ACTION
 import android.nfc.NdefMessage
 import android.nfc.NfcAdapter
+import android.nfc.tech.NfcF
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -46,7 +44,9 @@ import com.example.droid_share.DeviceDetailFragment.Companion.CHOOSE_FILE_RESULT
 import com.example.droid_share.DeviceDetailFragment.Companion.getTxFileDescriptor
 import com.example.droid_share.DeviceDetailFragment.Companion.txFilePackDscr
 import com.example.droid_share.connection.BluetoothController
-import com.example.droid_share.connection.NsdController
+import com.example.droid_share.connection.GattClient
+import com.example.droid_share.connection.GattServer
+import com.example.droid_share.connection.LnsController
 import com.example.droid_share.connection.WifiP2pBroadcastReceiver
 import com.example.droid_share.connection.WifiP2pController
 import com.example.droid_share.data.BluetoothClientServer
@@ -65,22 +65,29 @@ import java.util.UUID
 
 class MainActivity : AppCompatActivity(), ConnectionInfoListener {
     private var manager: WifiP2pManager? = null
-    private var isWifiP2pEnabled = false
     private var progressDialog: ProgressDialog? = null
 
-    private lateinit var p2pController: WifiP2pController
+    private lateinit var wifiP2pController: WifiP2pController
     private lateinit var bluetoothController: BluetoothController
     private lateinit var bluetoothClientServer: BluetoothClientServer
 
     // tmp
     var bluetoothServer: BluetoothServerSocket? = null
-    var gattCharacteristics = mutableListOf<BluetoothGattCharacteristic>()
+    private lateinit var gattClient: GattClient
+    private lateinit var gattServer: GattServer
+
+    // tmp2
+    var nfcAdapter: NfcAdapter? = null
+    lateinit var pendingIntent: PendingIntent
+    lateinit var intentFilters: Array<IntentFilter>
+    var techLists: Array<Array<String>>? = null
+
 
     private lateinit var wifiDataTransceiver: WifiDataTransceiver
     private lateinit var bltDataTransceiver: BluetoothDataTransceiver
     private lateinit var nsdDataTransceiver: NsdDataTransceiver
 
-    private lateinit var nsdController: NsdController
+    private lateinit var lnsController: LnsController
 
     lateinit var gridView: DeviceGridView
     lateinit var detailView: View
@@ -116,7 +123,8 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
                     findViewById<View>(R.id.btn_connect_dd).visibility = View.VISIBLE
                     findViewById<View>(R.id.btn_send_file_dd).visibility = View.VISIBLE
                 }
-                InfoType.WIFI -> {
+                InfoType.WIFI_DIRECT_PEER,
+                InfoType.WIFI_DIRECT_SERVICE -> {
                     when (info.wifiP2pDevice?.status) {
                         WifiP2pDevice.CONNECTED,
                         WifiP2pDevice.INVITED -> {
@@ -148,14 +156,67 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
         }
     }
 
-    /**
-     * @param isWifiP2pEnabled the isWifiP2pEnabled to set
-     */
-    fun setIsWifiP2pEnabled(isWifiP2pEnabled: Boolean) {
-        this.isWifiP2pEnabled = isWifiP2pEnabled
+    private val notifier = object: NotificationInterface{
+        override suspend fun showProgressDialog(title: String, message: String, listener: DialogInterface.OnClickListener) {
+            withContext(Dispatchers.Main) {
+                progressDialog = ProgressDialog(this@MainActivity)
+                with(progressDialog!!) {
+                    setTitle(title)
+                    setMessage(message)
+                    setCancelable(true)
+                    setButton(android.content.DialogInterface.BUTTON_NEGATIVE, "Cancel", listener)
+                    show()
+                }
+            }
+        }
+
+        override suspend fun updateProgressDialog(message: String) {
+            withContext(Dispatchers.Main) {
+                progressDialog?.setMessage(message)
+            }
+        }
+
+        override suspend fun dismissProgressDialog() {
+            withContext(Dispatchers.Main) {
+                progressDialog?.dismiss()
+            }
+        }
+
+        override fun showToast(message: String) {
+            CoroutineScope(Dispatchers.Main).launch {
+                Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
+            }
+        }
+
+        override suspend fun showAlertDialog(message: String,
+                                             negativeListener: DialogInterface.OnClickListener,
+                                             positiveListener: DialogInterface.OnClickListener) {
+            withContext(Dispatchers.Main) {
+                val builder = AlertDialog.Builder(this@MainActivity)
+                    .setMessage(message)
+                    .setNegativeButton("Dismiss", negativeListener)
+                    .setPositiveButton("Accept", positiveListener)
+                val dialog = builder.create()
+                dialog.show()
+            }
+        }
+
+        override suspend fun disconnect() {
+            withContext(Dispatchers.Main) {
+                // TODO: This function should be implemented
+                // (activity as DeviceActionListener).cancelConnect()
+                // fileAsyncTask.shutdown()
+            }
+        }
+
+        override fun onDeviceListUpdate(deviceList: List<DeviceInfo>) {
+            CoroutineScope(Dispatchers.Main).launch{
+                gridView.updateDataSet(deviceList)
+            }
+        }
     }
 
-    @SuppressLint("MissingPermission", "InflateParams")
+    @SuppressLint("MissingPermission", "InflateParams", "UnspecifiedImmutableFlag")
     public override fun onCreate(savedInstanceState: Bundle?) {
         Log.d(TAG, "start onCreate" )
 
@@ -168,17 +229,22 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
 
         manager = getSystemService(Context.WIFI_P2P_SERVICE) as WifiP2pManager
         channel = manager?.initialize(this, mainLooper, null)
-        p2pController = WifiP2pController(manager!!, channel!!)
-        receiver = WifiP2pBroadcastReceiver(p2pController, this)
+        wifiP2pController = WifiP2pController(manager!!, channel!!, notifier)
+        receiver = WifiP2pBroadcastReceiver(wifiP2pController, this)
 
-        bluetoothController = BluetoothController(this,
-            getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager,
-            gridView.gridUpdater)
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        bluetoothController = BluetoothController(this, bluetoothManager, notifier)
         registerReceiver(bluetoothController.receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
         bluetoothClientServer = BluetoothClientServer()
 
-        nsdController = NsdController(getSystemService(NSD_SERVICE) as NsdManager,
-            gridView.gridUpdater)
+        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            Log.d(TAG, "current device doesn't support BLE functionality")
+            finish();
+        }
+        gattClient = GattClient(this, bluetoothManager)
+        gattServer = GattServer(this, bluetoothManager)
+
+        lnsController = LnsController(getSystemService(NSD_SERVICE) as NsdManager, notifier)
 
 
         if (!bluetoothController.isBluetoothEnabled()) {
@@ -197,59 +263,6 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
 //            bluetoothController.startDiscovery()
         }
 
-        val notifier = object: NotificationInterface{
-            override suspend fun showProgressDialog(title: String, message: String, listener: DialogInterface.OnClickListener) {
-                withContext(Dispatchers.Main) {
-                    progressDialog = ProgressDialog(this@MainActivity)
-                    with(progressDialog!!) {
-                        setTitle(title)
-                        setMessage(message)
-                        setCancelable(true)
-                        setButton(android.content.DialogInterface.BUTTON_NEGATIVE, "Cancel", listener)
-                        show()
-                    }
-                }
-            }
-
-            override suspend fun updateProgressDialog(message: String) {
-                withContext(Dispatchers.Main) {
-                    progressDialog?.setMessage(message)
-                }
-            }
-
-            override suspend fun dismissProgressDialog() {
-                withContext(Dispatchers.Main) {
-                    progressDialog?.dismiss()
-                }
-            }
-
-            override suspend fun showToast(message: String) {
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, message, Toast.LENGTH_LONG).show()
-                }
-            }
-
-            override suspend fun showAlertDialog(message: String,
-                                                 negativeListener: DialogInterface.OnClickListener,
-                                                 positiveListener: DialogInterface.OnClickListener) {
-                withContext(Dispatchers.Main) {
-                    val builder = AlertDialog.Builder(this@MainActivity)
-                        .setMessage(message)
-                        .setNegativeButton("Dismiss", negativeListener)
-                        .setPositiveButton("Accept", positiveListener)
-                    val dialog = builder.create()
-                    dialog.show()
-                }
-            }
-
-            override suspend fun disconnect() {
-                withContext(Dispatchers.Main) {
-                    // (activity as DeviceActionListener).cancelConnect()
-                    // fileAsyncTask.shutdown()
-                }
-            }
-        }
-
         bltDataTransceiver = BluetoothDataTransceiver(notifier)
         wifiDataTransceiver = WifiDataTransceiver(notifier)
         nsdDataTransceiver = NsdDataTransceiver(notifier)
@@ -265,15 +278,16 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
                 InfoType.TEST -> {
 
                 }
-                InfoType.WIFI -> {
+                InfoType.WIFI_DIRECT_PEER,
+                InfoType.WIFI_DIRECT_SERVICE -> {
                     if ((view as Button).text == resources.getString(R.string.connect_peer_button)) {
 
-                        p2pController.connectP2pDevice(info.deviceAddress, info.deviceName)
+                        wifiP2pController.connectP2pDevice(info.deviceAddress, info.deviceName)
                         (view as Button).text = resources.getString(R.string.disconnect_peer_button)
                         // iew.isEnabled = false
                     } else {
                         wifiDataTransceiver.destroySocket()
-                        p2pController.disconnect(deviceInfo?.wifiP2pDevice)
+                        wifiP2pController.disconnect(deviceInfo?.wifiP2pDevice)
                         findViewById<View>(R.id.btn_send_file_dd).isEnabled = false
                     }
                 }
@@ -308,177 +322,16 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
                 }
                 InfoType.BLE -> {
                     Log.d(TAG, "ble info: ${info.scanResult!!}")
-                    val callback = object : BluetoothGattCallback() {
-                        override fun onPhyUpdate(
-                            gatt: BluetoothGatt?,
-                            txPhy: Int,
-                            rxPhy: Int,
-                            status: Int
-                        ) {
-                            Log.d(TAG, "BluetoothGattCallback(), onPhyUpdate")
-                        }
 
-                        override fun onPhyRead(
-                            gatt: BluetoothGatt?,
-                            txPhy: Int,
-                            rxPhy: Int,
-                            status: Int
-                        ) {
-                            Log.d(TAG, "BluetoothGattCallback(), onPhyRead")
-                        }
-
-                        override fun onConnectionStateChange(
-                            gatt: BluetoothGatt?,
-                            status: Int,
-                            newState: Int
-                        ) {
-                            Log.d(TAG, "BluetoothGattCallback(), onConnectionStateChange"
-                                    + "status $status, newState: $newState")
-
-                            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                                // successfully connected to the GATT Server
-                                // broadcastUpdate(ACTION_GATT_CONNECTED)
-                                // connectionState = STATE_CONNECTED
-                                // Attempts to discover services after successful connection.
-                                gatt?.discoverServices()
-                            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                                // disconnected from the GATT Server
-                                // broadcastUpdate(ACTION_GATT_DISCONNECTED)
-                                // connectionState = STATE_DISCONNECTED
-                            }
-                        }
-
-                        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-                            Log.d(TAG, "BluetoothGattCallback(), onServicesDiscovered")
-                            if (gatt == null) {
-                                return
-                            }
-
-                            for (service in gatt.getServices()) {
-                                Log.d(TAG, "Service: $service")
-                                for (mCharacteristic in service.getCharacteristics()) {
-                                    Log.i(TAG, "android    Found Characteristic: " + mCharacteristic.uuid.toString())
-                                    gattCharacteristics.add(mCharacteristic)
-                                }
-                            }
-
-                            // tmp
-                            if (gattCharacteristics.isNotEmpty()) {
-                                gatt.readCharacteristic(gattCharacteristics[0])
-                                gattCharacteristics.removeAt(0)
-                            }
-                        }
-
-                        override fun onCharacteristicRead(
-                            gatt: BluetoothGatt?,
-                            characteristic: BluetoothGattCharacteristic?,
-                            status: Int
-                        ) {
-                            // onCharacteristicRead(gatt, characteristic, status)
-                            Log.d(TAG, "BluetoothGattCallback(), onCharacteristicRead")
-                            Log.d(TAG,"characteristic: $characteristic")
-                            if (gattCharacteristics.isNotEmpty()) {
-                                gatt?.readCharacteristic(gattCharacteristics[0])
-                                gattCharacteristics.removeAt(0)
-                            }
-                        }
-
-                        override fun onCharacteristicRead(
-                            gatt: BluetoothGatt,
-                            characteristic: BluetoothGattCharacteristic,
-                            value: ByteArray,
-                            status: Int
-                        ) {
-                            // onCharacteristicRead(gatt, characteristic, status)
-                            Log.d(TAG, "BluetoothGattCallback(), onCharacteristicRead")
-                            Log.d(TAG,"characteristic: $characteristic")
-                            if (gattCharacteristics.isNotEmpty()) {
-                                gatt.readCharacteristic(gattCharacteristics[0])
-                                gattCharacteristics.removeAt(0)
-                            }
-                        }
-
-                        override fun onCharacteristicWrite(
-                            gatt: BluetoothGatt?,
-                            characteristic: BluetoothGattCharacteristic?,
-                            status: Int
-                        ) {
-                        }
-
-                        override fun onCharacteristicChanged(
-                            gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?
-                        ) {
-                        }
-
-                        override fun onCharacteristicChanged(
-                            gatt: BluetoothGatt,
-                            characteristic: BluetoothGattCharacteristic,
-                            value: ByteArray
-                        ) {
-                            onCharacteristicChanged(gatt, characteristic)
-                        }
-
-                        override fun onDescriptorRead(
-                            gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int
-                        ) {
-                        }
-
-                        override fun onDescriptorRead(
-                            gatt: BluetoothGatt,
-                            descriptor: BluetoothGattDescriptor,
-                            status: Int,
-                            value: ByteArray
-                        ) {
-                            onDescriptorRead(gatt, descriptor, status)
-                        }
-
-                        override fun onDescriptorWrite(
-                            gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int
-                        ) {
-                        }
-
-                        override fun onReliableWriteCompleted(gatt: BluetoothGatt?, status: Int) {}
-
-                        override fun onReadRemoteRssi(
-                            gatt: BluetoothGatt?,
-                            rssi: Int,
-                            status: Int
-                        ) {
-                        }
-
-                        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {}
-
-                        fun onConnectionUpdated(
-                            gatt: BluetoothGatt?,
-                            interval: Int,
-                            latency: Int,
-                            timeout: Int,
-                            status: Int
-                        ) {
-                        }
-
-                        override fun onServiceChanged(gatt: BluetoothGatt) {}
-
-                        fun onSubrateChange(
-                            gatt: BluetoothGatt?,
-                            subrateFactor: Int,
-                            latency: Int,
-                            contNum: Int,
-                            timeout: Int,
-                            status: Int
-                        ) {
-                        }
+                    if ((view as Button).text == resources.getString(R.string.connect_peer_button)) {
+                        gattClient.connect(info.scanResult!!)
+                        findViewById<View>(R.id.btn_send_file_dd).isEnabled = true
+                        (view as Button).text = resources.getString(R.string.disconnect_peer_button)
+                    } else {
+                        gattClient.disconnect()
+                        findViewById<View>(R.id.btn_send_file_dd).isEnabled = false
+                        (view as Button).text = resources.getString(R.string.connect_peer_button)
                     }
-                    val gatt :BluetoothGatt = info.scanResult!!.device.connectGatt(
-                        this, false, callback, BluetoothDevice.TRANSPORT_LE)
-                    Log.d(TAG, "gatt: $gatt")
-
-                    // gatt.readCharacteristic(0)
-
-                    val r = 0
-                    Log.d(TAG, "r = $r")
-
-                    // gatt.close()
                 }
             }
 
@@ -498,7 +351,8 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
         requestPerms()
 
         // Get intent, action and MIME type
-        Log.d(TAG, "intent = $intent")
+        Log.d(TAG, "onCreate(), intent = $intent")
+        Log.d(TAG, "onCreate(), intent.action = ${intent.action}")
 
         val action = intent.action
         if (Intent.ACTION_SEND == action || Intent.ACTION_SEND_MULTIPLE == action) {
@@ -529,15 +383,47 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
 //                delay(5000)
 //            }
 //        }
+
+        // tmp
+        nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        if (packageManager.hasSystemFeature(PackageManager.FEATURE_NFC)) {
+            Toast.makeText(
+                this, "The device does have the NFC hardware.",
+                Toast.LENGTH_SHORT
+            ).show()
+        }
+
+        // create an intent with tag data and deliver to this activity
+        pendingIntent = PendingIntent.getActivity( this, 0,
+            Intent(this, javaClass).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), 0)
+
+
+        // set an intent filter for all MIME data
+        val ndefIntent = IntentFilter(NfcAdapter.ACTION_NDEF_DISCOVERED)
+        try {
+            ndefIntent.addDataType("*/*")
+            intentFilters = arrayOf(ndefIntent)
+        } catch (e: Exception) {
+            Log.e("TagDispatch", e.toString())
+        }
+
+        techLists = arrayOf(arrayOf(NfcF::class.java.name))
+        Log.d(TAG, "NfcF.class.getName() = ${NfcF::class.java.name}, $techLists")
     }
 
     /** register the BroadcastReceiver with the intent values to be matched  */
     public override fun onResume() {
         super.onResume()
+        Log.d(TAG, "start onResume()")
         receiver?.also { receiver ->
             registerReceiver(receiver, intentFilter)
         }
         registerReceiver(bluetoothController.receiver, IntentFilter(BluetoothDevice.ACTION_FOUND))
+
+        if (nfcAdapter != null) {
+            Log.d(TAG,"run NFC enableForegroundDispatch")
+            nfcAdapter?.enableForegroundDispatch(this, pendingIntent, intentFilters, techLists)
+        }
     }
 
     public override fun onPause() {
@@ -546,6 +432,10 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
             unregisterReceiver(receiver)
         }
         unregisterReceiver(bluetoothController.receiver)
+
+        if (nfcAdapter != null) {
+            nfcAdapter?.disableForegroundDispatch(this)
+        }
     }
 
     /**
@@ -570,7 +460,7 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
     @SuppressLint("MissingPermission")
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.atn_direct_enable -> {
+            R.id.atn_wifi_settings -> {
                 // Since this is the system wireless settings activity, it's
                 // not going to send us a result. We will be notified by
                 // WiFiDeviceBroadcastReceiver instead.
@@ -580,42 +470,35 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
             }
 
             R.id.atn_create_service -> {
-                p2pController.registerP2rService()
-                return true
-            }
-
-            R.id.atn_discover_services -> {
-                p2pController.discoverP2pService()
-                return true
-            }
-
-            R.id.atn_direct_discovery -> {
-                if (!isWifiP2pEnabled) {
-                    Toast.makeText(this@MainActivity, R.string.p2p_off_warning,
-                        Toast.LENGTH_SHORT).show()
-                    return true
+                if (item.title == resources.getString(R.string.create_wifi_direct_service_button)) {
+                    wifiP2pController.registerP2pService()
+                    item.title = resources.getString(R.string.remove_wifi_direct_service_button)
+                } else {
+                    wifiP2pController.unregisterP2pService()
+                    item.title = resources.getString(R.string.create_wifi_direct_service_button)
                 }
-//                val fragment = supportFragmentManager
-//                    .findFragmentById(R.id.fragment_list) as DeviceListFragment
-//                 fragment.onInitiateDiscovery()
+                return true
+            }
 
-                bluetoothController.stopDiscovery()
-                p2pController.discoverP2pPeers()
-                Toast.makeText(this@MainActivity, R.string.discovery_initiated, Toast.LENGTH_SHORT).show()
-//                manager!!.discoverPeers(channel, object : WifiP2pManager.ActionListener {
-//
-//                    override fun onSuccess() {
-//                        Log.d(TAG, "Discovery Initiated")
-//                        Toast.makeText(this@MainActivity, "Discovery Initiated",
-//                            Toast.LENGTH_SHORT).show()
-//                    }
-//
-//                    override fun onFailure(reasonCode: Int) {
-//                        Log.d(TAG, "Discovery Failed:$reasonCode")
-//                        Toast.makeText(this@MainActivity, "Discovery Failed : $reasonCode",
-//                            Toast.LENGTH_SHORT).show()
-//                    }
-//                })
+            R.id.atn_discover_wifi_direct_services -> {
+                if (item.title == resources.getString(R.string.start_discover_wifi_direct_services_button)) {
+                    wifiP2pController.startDiscoverP2pService()
+                    item.title = resources.getString(R.string.stop_discover_wifi_direct_services_button)
+                } else {
+                    wifiP2pController.stopDiscoverP2pServices()
+                    item.title = resources.getString(R.string.start_discover_wifi_direct_services_button)
+                }
+                return true
+            }
+
+            R.id.atn_wifi_direct_peer_discovery -> {
+                if (item.title == resources.getString(R.string.start_discover_wifi_peers_button)) {
+                    wifiP2pController.startDiscoverP2pPeers()
+                    item.title = resources.getString(R.string.stop_discover_wifi_peers_button)
+                } else {
+                    wifiP2pController.stopDiscoverP2pPeers()
+                    item.title = resources.getString(R.string.start_discover_wifi_peers_button)
+                }
                 return true
             }
 
@@ -627,24 +510,44 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
             }
 
             R.id.atn_bluetooth_server -> {
-                val name = "test_bluetooth_server"
-                val uuid = UUID.fromString("94c838f1-8ef1-4f2d-8b97-9b94675d139a")
-                Log.d(TAG, "run bluetooth server with uuid = $uuid")
-                CoroutineScope(Dispatchers.IO).launch {
-                    bltDataTransceiver.startServer(bluetoothController.createServer(name, uuid))
+                if (item.title == resources.getString(R.string.create_server_bluetooth_button)) {
+                    val name = "test_bluetooth_server"
+                    val uuid = UUID.fromString("94c838f1-8ef1-4f2d-8b97-9b94675d139a")
+                    Log.d(TAG, "run bluetooth server with uuid = $uuid")
+                    CoroutineScope(Dispatchers.IO).launch {
+                        bltDataTransceiver.startServer(bluetoothController.createServer(name, uuid))
+                    }
+                    item.title = resources.getString(R.string.remove_server_bluetooth_button)
+                } else {
+                    bltDataTransceiver.destroySocket()
+                    item.title = resources.getString(R.string.create_server_bluetooth_button)
+                }
+
+                return true
+            }
+
+            R.id.atn_discover_local_network_service -> {
+                if (item.title == resources.getString(R.string.start_discover_lns_button)) {
+                    lnsController.startDiscoverLocalNetworkServices()
+                    item.title = resources.getString(R.string.stop_discover_lns_button)
+                } else {
+                    lnsController.stopDiscoverLocalNetworkServices()
+                    item.title = resources.getString(R.string.start_discover_lns_button)
                 }
                 return true
             }
 
-            R.id.atn_nsd_discovery -> {
-                nsdController.discoveryNsdService()
-                return true
-            }
-
-            R.id.atn_create_local_service -> {
-                nsdController.registerNsdService()
-                CoroutineScope(Dispatchers.IO).launch {
-                    nsdDataTransceiver.createSocket(true, nsdController.getServiceInfo(), txFilePackDscr)
+            R.id.atn_create_local_network_service -> {
+                if (item.title == resources.getString(R.string.create_local_service_button)) {
+                    lnsController.registerLocalNetworkService()
+                    CoroutineScope(Dispatchers.IO).launch {
+                        nsdDataTransceiver.createSocket(true, lnsController.getServiceInfo(), txFilePackDscr)
+                    }
+                    item.title = resources.getString(R.string.remove_local_service_button)
+                } else {
+                    lnsController.unregisterLocalNetworkService()
+                    nsdDataTransceiver.destroySocket()
+                    item.title = resources.getString(R.string.create_local_service_button)
                 }
                 return true
             }
@@ -660,15 +563,21 @@ class MainActivity : AppCompatActivity(), ConnectionInfoListener {
             }
 
             R.id.atn_start_ble_advertising -> {
-                CoroutineScope(Dispatchers.IO).launch {
-                    bluetoothController.startBleAdvertising()
-                }
+//                CoroutineScope(Dispatchers.IO).launch {
+//                    bluetoothController.startBleAdvertising()
+//                }
                 return true
             }
 
             R.id.atn_start_ble_service -> {
-                CoroutineScope(Dispatchers.IO).launch {
-                    bluetoothController.startBleService()
+                if (item.title == resources.getString(R.string.start_ble_service)) {
+                    // CoroutineScope(Dispatchers.IO).launch {
+                        gattServer.startBleService()
+                    // }
+                    item.title = resources.getString(R.string.stop_ble_service)
+                } else {
+                    gattServer.stopBleService()
+                    item.title = resources.getString(R.string.start_ble_service)
                 }
                 return true
             }
@@ -825,10 +734,11 @@ interface NotificationInterface {
     suspend fun showProgressDialog(title: String, message: String, listener: DialogInterface.OnClickListener)
     suspend fun updateProgressDialog(message: String)
     suspend fun dismissProgressDialog()
-    suspend fun showToast(message: String)
+    fun showToast(message: String)
     suspend fun showAlertDialog(message: String,
                                 negativeListener: DialogInterface.OnClickListener,
                                 positiveListener: DialogInterface.OnClickListener)
     suspend fun disconnect()
+    fun onDeviceListUpdate(deviceList: List<DeviceInfo>)
 }
 

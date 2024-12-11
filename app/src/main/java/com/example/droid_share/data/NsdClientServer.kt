@@ -91,8 +91,13 @@ class NsdClientServer {
             } else {
                 Log.d(TAG, "Server: Socket is already opened")
             }
-            client = server?.accept()
-            Log.d(TAG, "Server: accept done")
+
+            try {
+                client = server?.accept()
+                Log.d(TAG, "Server: accept done")
+            } catch (e: Exception) {
+                Log.d(TAG, "NsdClientServer, createServer, exception happened: $e")
+            }
         }
     }
 

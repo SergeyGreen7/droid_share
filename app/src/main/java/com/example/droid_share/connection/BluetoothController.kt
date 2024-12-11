@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.app.Service
 import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothDevice
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.BluetoothGattCharacteristic
 import android.bluetooth.BluetoothGattServer
 import android.bluetooth.BluetoothGattServerCallback
@@ -28,86 +29,53 @@ import android.os.IBinder
 import android.os.ParcelUuid
 import android.os.Parcelable
 import android.util.Log
+import com.example.droid_share.NotificationInterface
 import com.example.droid_share.grid.DeviceInfo
-import com.example.droid_share.grid.GridUpdater
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.util.UUID
 
 
 class BluetoothController(
     private val context: Context,
     private val manager : BluetoothManager,
-    private val gridUpdater: GridUpdater
+    private val notifier: NotificationInterface
 )
 {
     private lateinit var advertiser: BluetoothLeAdvertiser
     private var currentAdvertisingSet: AdvertisingSet? = null
 
     private var devices = HashMap<String, BluetoothDevice>()
-    private var leDevices = HashMap<String, ScanResult>()
+
+    private lateinit var gattScanner: GattScanner
+    private lateinit var gattServer: GattServer
+    // private lateinit var gattScanner: GattScanner
 
     companion object {
         private const val TAG = "BluetoothController"
 
-        private val BLE_SCAN_PERIOD = 10000L
 
-        val GATT_SERVICE_UUID = UUID.fromString("5116c812-ad72-449f-a503-f8662bc21cde")
-        val GATT_CHARACT_UUID = UUID.fromString("330fb1d7-afb6-4b00-b5da-3b0feeef9816")
     }
 
     private var bluetoothSupport = false
     lateinit var receiver: BroadcastReceiver
     private lateinit var adapter : BluetoothAdapter
-    private lateinit var bleScanner : BluetoothLeScanner
-
-    // tmp
-    private lateinit var gattServer: BluetoothGattServer
-
-    // private val leDeviceListAdapter = LeDeviceListAdapter()
-    // Device scan callback.
-    private val leScanCallback: ScanCallback = object : ScanCallback() {
-        @SuppressLint("MissingPermission")
-        override fun onScanResult(callbackType: Int, result: ScanResult?) {
-            if (result != null) {
-                if (result.device.name != null) {
-                    // Log.d(TAG, "leScanCallback, onScanResult")
-                    // Log.d(TAG, "    result: $result")
-                    leDevices[result.device.address] = result
-                }
-            }
-            gridUpdater.onDeviceListUpdate(leDevices.map{DeviceInfo(it.value)})
-        }
-
-        override fun onBatchScanResults(results: List<android.bluetooth.le.ScanResult?>?) {
-            Log.d(TAG, "leScanCallback, onBatchScanResults")
-        }
-
-        override fun onScanFailed(errorCode: Int) {
-            Log.d(TAG, "leScanCallback, onScanFailed")
-        }
-//        override fun onScanResult(callbackType: Int, result: ScanResult) {
-//            super.onScanResult(callbackType, result)
-//            // leDeviceListAdapter.addDevice(result.device)
-//            // leDeviceListAdapter.notifyDataSetChanged()
-//        }
-    }
 
     init {
         bluetoothSupport = manager.adapter != null
-        if (bluetoothSupport) {
-            adapter = manager.adapter
-            bleScanner = adapter.bluetoothLeScanner
-
-            Log.d(TAG, "isLe2MPhySupported: ${adapter.isLe2MPhySupported}")
-            Log.d(TAG, "isLeCodedPhySupported: ${adapter.isLeCodedPhySupported}")
-            Log.d(TAG, "isLeExtendedAdvertisingSupported: ${adapter.isLeExtendedAdvertisingSupported}")
-            Log.d(TAG, "isLePeriodicAdvertisingSupported: ${adapter.isLePeriodicAdvertisingSupported}")
-
-            advertiser = adapter.bluetoothLeAdvertiser
-
-        } else {
-            Log.d(TAG, "Device doesn't support Bluetooth")
+        if (!bluetoothSupport) {
+            throw Exception("Current device doesn't support bluetooth")
         }
+        adapter = manager.adapter
+
+        Log.d(TAG, "isLe2MPhySupported: ${adapter.isLe2MPhySupported}")
+        Log.d(TAG, "isLeCodedPhySupported: ${adapter.isLeCodedPhySupported}")
+        Log.d(TAG, "isLeExtendedAdvertisingSupported: ${adapter.isLeExtendedAdvertisingSupported}")
+        Log.d(TAG, "isLePeriodicAdvertisingSupported: ${adapter.isLePeriodicAdvertisingSupported}")
+
+        advertiser = adapter.bluetoothLeAdvertiser
 
         receiver = object : BroadcastReceiver() {
             @SuppressLint("MissingPermission")
@@ -132,11 +100,15 @@ class BluetoothController(
                         devices[device.address] = device
                     }
 
-                    gridUpdater.onDeviceListUpdate(devices.map{DeviceInfo(it.value)})
+                    CoroutineScope(Dispatchers.Main).launch {
+                        notifier.onDeviceListUpdate(devices.map{DeviceInfo(it.value)})
+                    }
                 }
             }
-
         }
+
+        gattScanner = GattScanner(adapter.bluetoothLeScanner, notifier)
+        gattServer = GattServer(context, manager)
     }
 
     fun isBluetoothEnabled(): Boolean {
@@ -172,16 +144,6 @@ class BluetoothController(
         } else {
             Log.d(TAG, "Bluetooth discovery procedure is canceled.")
         }
-    }
-
-    @SuppressLint("MissingPermission")
-    fun startBleDiscovery() {
-        bleScanner.startScan(leScanCallback)
-    }
-
-    @SuppressLint("MissingPermission")
-    fun stopBleDiscovery() {
-        bleScanner.stopScan(leScanCallback)
     }
 
     @SuppressLint("MissingPermission")
@@ -311,66 +273,21 @@ class BluetoothController(
         delay(100000)
     }
 
-    @SuppressLint("MissingPermission")
-    fun startBleService() {
-
-        val gattServerCallback = GattServerCallback()
-        gattServer = manager.openGattServer(context, gattServerCallback)
-        setupServer()
-        startGattServerAdvertising()
+    fun startBleServer() {
+        gattServer.startBleService()
     }
 
-    @SuppressLint("MissingPermission")
-    fun setupServer() {
-        val gattService = BluetoothGattService(GATT_SERVICE_UUID,
-            BluetoothGattService.SERVICE_TYPE_PRIMARY)
-
-        val writeCharacteristic = BluetoothGattCharacteristic(
-            GATT_CHARACT_UUID,
-            BluetoothGattCharacteristic.PROPERTY_WRITE,
-            BluetoothGattCharacteristic.PERMISSION_WRITE)
-        gattService.addCharacteristic(writeCharacteristic)
-
-        gattServer.addService(gattService)
+    fun stopBleServer() {
+        gattServer.stopBleService()
     }
 
-    @SuppressLint("MissingPermission")
-    fun startGattServerAdvertising() {
-        val settings = AdvertiseSettings.Builder()
-            .setAdvertiseMode(AdvertiseSettings.ADVERTISE_MODE_BALANCED)
-            .setConnectable(true)
-            .setTimeout(0)
-            .setTxPowerLevel(AdvertiseSettings.ADVERTISE_TX_POWER_MEDIUM)
-            .build()
-
-        val parcelUuid = ParcelUuid(GATT_SERVICE_UUID)
-        val data = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
-            .addServiceUuid(parcelUuid)
-            .build()
-
-        val mAdvertiseCallback: AdvertiseCallback = object : AdvertiseCallback() {
-            override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-                Log.d(TAG, "Peripheral advertising started.")
-            }
-
-            override fun onStartFailure(errorCode: Int) {
-                Log.d(TAG, "Peripheral advertising failed: $errorCode")
-            }
-        }
-        advertiser.startAdvertising(settings, data, null, mAdvertiseCallback)
+    fun startBleDiscovery() {
+        gattScanner.startScan()
     }
 
-    @SuppressLint("MissingPermission")
-    fun stopBleService() {
-        // mBluetoothLeAdvertiser
-        gattServer.close()
+    fun stopBleDiscovery() {
+        gattScanner.stopScan()
     }
-
-}
-
-class GattServerCallback : BluetoothGattServerCallback() {
-
 }
 
 class BleService : Service() {
@@ -398,4 +315,5 @@ class BleService : Service() {
             return this@BleService
         }
     }
+
 }

@@ -8,11 +8,18 @@ import android.net.wifi.p2p.WifiP2pDevice
 
 enum class InfoType {
     TEST,
-    WIFI,
+    WIFI_DIRECT_PEER,
+    WIFI_DIRECT_SERVICE,
     BLUETOOTH,
     NSD,
     BLE
 }
+
+class WifiDirectServiceInfo (
+    val instanceName: String,
+    val registrationType: String,
+    val device: WifiP2pDevice,
+) {}
 
 class DeviceInfo {
     var type: InfoType = InfoType.TEST
@@ -45,7 +52,7 @@ class DeviceInfo {
     }
 
     constructor(device: WifiP2pDevice) {
-        type            = InfoType.WIFI
+        type            = InfoType.WIFI_DIRECT_PEER
         deviceName      = device.deviceName
         deviceInfo      = getWifiP2pDeviceStatus(device.status)
         deviceAddress   = device.deviceAddress
@@ -53,6 +60,12 @@ class DeviceInfo {
         bluetoothDevice = null
         nsdServiceInfo  = null
         scanResult      = null
+    }
+
+    constructor(service: WifiDirectServiceInfo): this(service.device) {
+        type        = InfoType.WIFI_DIRECT_SERVICE
+        deviceName  = service.instanceName
+        deviceInfo  = service.registrationType
     }
 
     @SuppressLint("MissingPermission")

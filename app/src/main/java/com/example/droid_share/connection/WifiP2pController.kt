@@ -12,163 +12,55 @@ import android.net.wifi.p2p.nsd.WifiP2pDnsSdServiceRequest
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
+import com.example.droid_share.NotificationInterface
 import com.example.droid_share.Utils
-import java.net.NetworkInterface
-import java.util.Collections
+import com.example.droid_share.connection.WifiDirectServiceScanner.Companion
 
 
 class WifiP2pController(
     private val manager: WifiP2pManager,
-    private val channel: Channel)
+    private val channel: Channel,
+    private val notifier: NotificationInterface,
+)
 {
 
     companion object {
         private const val TAG = "WifiP2pController"
-        private const val SERVICE_TYPE = "_wifip2p._tcp"
+//        private const val SERVICE_TYPE = "_wifip2p._tcp"
     }
 
     private val SERVER_PORT = 8888;
 
+    val peerScanner = WifiDirectPeerScanner(manager, channel, notifier)
+    private val serviceScanner = WifiDirectServiceScanner(manager, channel, notifier)
+    private val service = WifiDirectService(manager, channel)
+
+    private var isWifiP2pEnabled = false
     private val buddies = mutableMapOf<String, String>()
 
-    @SuppressLint("MissingPermission")
-    fun registerP2rService() {
-        val record = HashMap<String, String>();
-
-        val interfaces: List<NetworkInterface> =
-            Collections.list(NetworkInterface.getNetworkInterfaces())
-
-        record["buddyname"] = "NS220RE-${(Math.random() * 1000000).toInt()}"
-        record["available"] = "visible"
-
-        val instanceName = "NS220RE-${(Math.random() * 1000000).toInt()}"
-
-        val serviceInfo = WifiP2pDnsSdServiceInfo
-            .newInstance(instanceName, SERVICE_TYPE, record)
-
-        manager.addLocalService(channel, serviceInfo, object: ActionListener {
-
-            override fun onSuccess() {
-                // Command successful! Code isn't necessarily needed here,
-                // Unless you want to update the UI or add logging statements.
-                Log.d(TAG, "addLocalService(), onSuccess")
-            }
-
-            override fun onFailure(code: Int) {
-                Log.d(TAG, "addLocalService(), onFailure, ${getErrorCodeDescription(code)}")
-            }
-        })
+    fun registerP2pService() {
+        service.registerP2pService()
     }
 
     fun unregisterP2pService() {
-        manager.clearLocalServices(channel, object: ActionListener {
+        service.unregisterP2pService()
+    }
 
-            override fun onSuccess() {
-                // Command successful! Code isn't necessarily needed here,
-                // Unless you want to update the UI or add logging statements.
-                Log.d(TAG, "clearLocalServices(), onSuccess")
-            }
+    fun startDiscoverP2pService() {
+        serviceScanner.startScan()
+    }
 
-            override fun onFailure(code: Int) {
-                Log.d(TAG, "clearLocalServices(), onFailure, ${getErrorCodeDescription(code)}")
-            }
-        })
+    fun stopDiscoverP2pServices() {
+        serviceScanner.stopScan()
     }
 
     @SuppressLint("MissingPermission")
-    fun discoverP2pService() {
-        /* Callback includes:
-         * fullDomain: full domain name: e.g. "printer._ipp._tcp.local."
-         * record: TXT record dta as a map of key/value pairs.
-         * device: The device running the advertised service.
-         */
-        val txtListener = DnsSdTxtRecordListener { fullDomain, record, device ->
-            Log.d(TAG, "DnsSdTxtRecordListener, DnsSdTxtRecord available:")
-            Log.d(TAG, "    fullDomain: $fullDomain")
-            Log.d(TAG, "    record: $record")
-            Log.d(TAG, "    device: $device")
-            record["buddyname"]?.also {
-                buddies[device.deviceAddress] = it
-            }
-        }
-
-        val servListener = DnsSdServiceResponseListener { instanceName, registrationType, resourceType ->
-            // Update the device name with the human-friendly version from
-            // the DnsTxtRecord, assuming one arrived.
-            Log.d(TAG, "DnsSdServiceResponseListener, DnsSdService available:")
-            Log.d(TAG, "    instanceName: $instanceName")
-            Log.d(TAG, "    registrationType: $registrationType")
-            Log.d(TAG, "    resourceType: $resourceType")
-
-            resourceType.deviceName = buddies[resourceType.deviceAddress] ?: resourceType.deviceName
-
-            // Add to the custom adapter defined specifically for showing
-            // wifi devices.
-//            val fragment = fragmentManager
-//                .findFragmentById(R.id.frag_peerlist) as WiFiDirectServicesList
-//            (fragment.listAdapter as WiFiDevicesAdapter).apply {
-//                add(resourceType)
-//                notifyDataSetChanged()
-//            }
-
-//            Log.d(TAG, "onBonjourServiceAvailable $instanceName")
-        }
-
-        manager.setDnsSdResponseListeners(channel, servListener, txtListener)
-
-        val serviceRequest = WifiP2pDnsSdServiceRequest.newInstance()
-        manager.addServiceRequest(channel, serviceRequest, object : ActionListener {
-                override fun onSuccess() {
-                    // Success!
-                    Log.d(TAG, "addServiceRequest(), onSuccess")
-                }
-
-                override fun onFailure(code: Int) {
-                    // Command failed.  Check for P2P_UNSUPPORTED, ERROR, or BUSY
-                    Log.d(TAG, "addServiceRequest(), onFailure, ${getErrorCodeDescription(code)}")
-                }
-            }
-        )
-        manager.discoverServices(channel,  object : ActionListener {
-            override fun onSuccess() {
-                // Success!
-                Log.d(TAG, "discoverServices(), onSuccess")
-            }
-
-            override fun onFailure(code: Int) {
-                // Command failed. Check for P2P_UNSUPPORTED, ERROR, or BUSY
-                Log.d(TAG, "discoverServices(), onFailure, ${getErrorCodeDescription(code)}")
-            }
-        })
-
+    fun startDiscoverP2pPeers() {
+        peerScanner.startScan()
     }
 
-    fun stopDiscoveryP2pServices() {
-        manager.stopPeerDiscovery(channel,  object : ActionListener {
-            override fun onSuccess() {
-                // Success!
-                Log.d(TAG, "stopPeerDiscovery(), onSuccess")
-            }
-
-            override fun onFailure(code: Int) {
-                // Command failed. Check for P2P_UNSUPPORTED, ERROR, or BUSY
-                Log.d(TAG, "stopPeerDiscovery(), onFailure, ${getErrorCodeDescription(code)}")
-            }
-        })
-    }
-
-    @SuppressLint("MissingPermission")
-    fun discoverP2pPeers() {
-        manager.discoverPeers(channel, object : ActionListener {
-
-            override fun onSuccess() {
-                Log.d(TAG, "discoverPeers(), onSuccess")
-            }
-
-            override fun onFailure(code: Int) {
-                Log.d(TAG, "discoverPeers(), onFailure, ${getErrorCodeDescription(code)}")
-            }
-        })
+    fun stopDiscoverP2pPeers() {
+        peerScanner.stopScan()
     }
 
     @SuppressLint("MissingPermission")
@@ -199,15 +91,35 @@ class WifiP2pController(
 
             override fun onFailure(code: Int) {
                 // Command failed. Check for P2P_UNSUPPORTED, ERROR, or BUSY
-                Log.d(TAG, "connect(), onFailure, ${getErrorCodeDescription(code)}")
+                Log.d(TAG, "connect(), onFailure, ${WifiUtils.getErrorCodeDescription(code)}")
             }
         })
     }
 
+    @SuppressLint("MissingPermission")
     fun disconnect(device: WifiP2pDevice?) {
-        if (device == null ||
-            device.status == WifiP2pDevice.CONNECTED) {
-            removeP2pGroup()
+        Log.d(TAG, "WifiP2pController, disconnect(), device.status = ${device?.status}")
+        if (device == null) {
+            return
+        }
+
+        if (
+            device.status == WifiP2pDevice.CONNECTED ||
+            device.status == WifiP2pDevice.UNAVAILABLE) {
+            cancelP2pConnection()
+
+            manager.requestGroupInfo(channel) { group ->
+                if (group != null) {
+                    manager.removeGroup(channel, object : ActionListener {
+                        override fun onSuccess() {
+                            Log.d(TAG, "WifiP2pController, removeGroup - onSuccess()")
+                        }
+                        override fun onFailure(reason: Int) {
+                            Log.d(TAG, "WifiP2pController, removeGroup - onFailure() - ${WifiUtils.getErrorCodeDescription(reason)}")
+                        }
+                    })
+                }
+            }
         } else if (
             device.status == WifiP2pDevice.INVITED ||
             device.status == WifiP2pDevice.AVAILABLE) {
@@ -215,14 +127,14 @@ class WifiP2pController(
         }
     }
 
-    fun cancelP2pConnection() {
+    private fun cancelP2pConnection() {
         manager.cancelConnect(channel, object : ActionListener {
             override fun onSuccess() {
                 Log.d(TAG, "cancelConnect(), onSuccess")
             }
 
             override fun onFailure(code: Int) {
-                Log.d(TAG, "cancelConnect(), onFailure, ${getErrorCodeDescription(code)}")
+                Log.d(TAG, "cancelConnect(), onFailure, ${WifiUtils.getErrorCodeDescription(code)}")
             }
         })
     }
@@ -232,7 +144,7 @@ class WifiP2pController(
     }
 
     @SuppressLint("MissingPermission")
-    fun createP2pGroup(deviceAddress: String, name: String) {
+    private fun createP2pGroup(deviceAddress: String, name: String) {
 
         val builder = WifiP2pConfig.Builder()
             .setNetworkName("DIRECT-AQShare_Group111")
@@ -250,44 +162,20 @@ class WifiP2pController(
             }
 
             override fun onFailure(code: Int) {
-                Log.d(TAG, "createGroup(), onFailure, ${getErrorCodeDescription(code)}")
+                Log.d(TAG, "createGroup(), onFailure, ${WifiUtils.getErrorCodeDescription(code)}")
             }
         })
     }
 
-    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
-    fun removeP2pClient(deviceAddress: String) {
-        manager.removeClient(channel, MacAddress.fromString(deviceAddress), object : ActionListener {
-            override fun onSuccess() {
-                Log.d(TAG, "removeClient(), onSuccess")
-            }
-
-            override fun onFailure(code: Int) {
-                Log.d(TAG, "removeClient(), onFailure, ${getErrorCodeDescription(code)}")
-            }
-        })
-    }
-
-    fun removeP2pGroup() {
-        manager.removeGroup(channel,object : ActionListener {
+    private fun removeP2pGroup() {
+        manager.removeGroup(channel, object : ActionListener {
             override fun onSuccess() {
                 Log.d(TAG, "removeGroup, onSuccess")
             }
-
             override fun onFailure(code: Int) {
-                Log.d(TAG, "removeGroup(), onFailure, ${getErrorCodeDescription(code)}")
+                Log.d(TAG, "removeGroup(), onFailure, ${WifiUtils.getErrorCodeDescription(code)}")
             }
         })
-    }
-
-    private fun getErrorCodeDescription(code: Int): String {
-        when (code) {
-            P2P_UNSUPPORTED -> return "operation failed because p2p is unsupported on the device"
-            ERROR -> return "operation failed due to an internal error"
-            BUSY -> return "operation failed because the framework is busy and unable to service the request"
-            NO_SERVICE_REQUESTS -> return "the discoverServices failed because no service requests are added"
-        }
-        return "Error code description is not found"
     }
 
 }

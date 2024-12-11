@@ -13,7 +13,6 @@ class DeviceGridView(
     private val numColumns: Int
 ) {
     var customAdapter: DeviceCustomAdapter
-    val gridUpdater: GridUpdater
 
     init {
         recyclerView.layoutManager = GridLayoutManager(context,numColumns)
@@ -25,15 +24,10 @@ class DeviceGridView(
             DeviceInfo("asdasdasd","asdasdasd")
         )
         customAdapter.updateDataSet(tmpList)
+    }
 
-        gridUpdater = object: GridUpdater{
-            override fun onDeviceListUpdate(deviceList: List<DeviceInfo>) {
-                customAdapter.updateDataSet(deviceList)
-            }
-        }
+    fun updateDataSet(deviceList: List<DeviceInfo>) {
+        customAdapter.updateDataSet(deviceList)
     }
 }
 
-interface GridUpdater {
-    fun onDeviceListUpdate(deviceList: List<DeviceInfo>)
-}

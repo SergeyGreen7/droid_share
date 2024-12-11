@@ -1,40 +1,40 @@
 <menu xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto">
     <item
-        android:id="@+id/atn_direct_enable"
+        android:id="@+id/atn_wifi_settings"
         android:icon="@drawable/ic_action_on_off"
         android:title="@string/enable_p2p_button"
         app:showAsAction="withText" />
     <item
         android:id="@+id/atn_create_service"
         android:icon="@drawable/ic_action_create_service"
-        android:title="@string/create_service_button"
+        android:title="@string/create_wifi_direct_service_button"
         app:showAsAction="withText" />
     <item
-        android:id="@+id/atn_discover_services"
+        android:id="@+id/atn_discover_wifi_direct_services"
         android:icon="@drawable/ic_action_discover_services"
-        android:title="@string/discover_services_button"
+        android:title="@string/start_discover_wifi_direct_services_button"
         app:showAsAction="withText" />
     <item
-        android:id="@+id/atn_direct_discovery"
+        android:id="@+id/atn_wifi_direct_peer_discovery"
         android:icon="@drawable/ic_action_discover_peers"
-        android:title="@string/discover_peers_button"
+        android:title="@string/start_discover_wifi_peers_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_bluetooth_server"
+        android:title="@string/create_server_bluetooth_button"
         app:showAsAction="withText" />
     <item
         android:id="@+id/atn_bluetooth_discovery"
         android:title="@string/discover_bluetooth_button"
         app:showAsAction="withText" />
     <item
-        android:id="@+id/atn_bluetooth_server"
-        android:title="@string/server_bluetooth_button"
-        app:showAsAction="withText" />
-    <item
-        android:id="@+id/atn_nsd_discovery"
-        android:title="@string/discover_nsd_button"
-        app:showAsAction="withText" />
-    <item
-        android:id="@+id/atn_create_local_service"
+        android:id="@+id/atn_create_local_network_service"
         android:title="@string/create_local_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/atn_discover_local_network_service"
+        android:title="@string/start_discover_lns_button"
         app:showAsAction="withText" />
     <item
         android:id="@+id/atn_send_nfc_message"

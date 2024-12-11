@@ -1,18 +1,25 @@
 <resources>
-    <string name="app_name">wifi_direct_5</string>
+    <string name="app_name">droid_share</string>
 
     <string name="enable_p2p_button">Wi-Fi settings</string>
-    <string name="discover_peers_button">Get P2P peers</string>
-    <string name="discover_services_button">Get services</string>
-    <string name="create_service_button">Post service</string>
+    <string name="create_wifi_direct_service_button">Create Wi-Fi direct service</string>
+    <string name="remove_wifi_direct_service_button">Remove Wi-Fi direct service</string>
+    <string name="start_discover_wifi_direct_services_button">Start discovering of Wi-Fi direct services</string>
+    <string name="stop_discover_wifi_direct_services_button">Stop discovering of Wi-Fi direct services</string>
+    <string name="start_discover_wifi_peers_button">Start discovering of Wi-Fi P2P peers</string>
+    <string name="stop_discover_wifi_peers_button">Stop discovering of Wi-Fi P2P peers</string>
     <string name="discover_bluetooth_button">Discover bluetooth</string>
-    <string name="server_bluetooth_button">Create bluetooth server</string>
-    <string name="discover_nsd_button">Discover local services</string>
-    <string name="create_local_service_button">Create local services</string>
+    <string name="create_server_bluetooth_button">Create bluetooth server</string>
+    <string name="remove_server_bluetooth_button">Remove bluetooth server</string>
+    <string name="start_discover_lns_button">Start discover local network services</string>
+    <string name="stop_discover_lns_button">Stop discover local network services</string>
+    <string name="create_local_service_button">Create local network service</string>
+    <string name="remove_local_service_button">Remove local network service</string>
     <string name="send_nfc_message_button">Send NFC message</string>
     <string name="discover_ble_button">Discover BLE devices</string>
     <string name="start_ble_advertising">Start BLE advertising</string>
     <string name="start_ble_service">Start BLE service</string>
+    <string name="stop_ble_service">Stop BLE service</string>
 
 
     <string name="p2p_off_warning">Enable P2P from action bar button above or system settings</string>

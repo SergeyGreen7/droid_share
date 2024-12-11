@@ -20,6 +20,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.example.droid_share.data.FileAsyncTask
+import com.example.droid_share.grid.DeviceInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -88,10 +89,8 @@ class DeviceDetailFragment : Fragment(), ConnectionInfoListener {
                     }
                 }
 
-                override suspend fun showToast(message: String) {
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
-                    }
+                override fun showToast(message: String) {
+                    Toast.makeText(activity, message, Toast.LENGTH_LONG).show()
                 }
 
             override suspend fun showAlertDialog(message: String,
@@ -113,7 +112,11 @@ class DeviceDetailFragment : Fragment(), ConnectionInfoListener {
                     fileAsyncTask.shutdown()
                 }
             }
-            })
+
+            override fun onDeviceListUpdate(deviceList: List<DeviceInfo>) {
+                TODO("Not yet implemented")
+            }
+        })
 
         return mContentView
     }

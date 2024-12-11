@@ -20,7 +20,9 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import kotlin.math.ceil
 import kotlin.math.min
+import kotlin.math.round
 
 
 class DataTransceiver(
@@ -501,6 +503,7 @@ class DataTransceiver(
                                          fileSize: Int): DataTransferStatus {
         var status = DataTransferStatus.DONE
         var numBytesTotal = 0
+        var prevRatio = -1f
         try {
             while (numBytesTotal < fileSize) {
                 val tag = readStringUtf8()
@@ -523,8 +526,11 @@ class DataTransceiver(
                 }
 
                 val ratio = rxFilePackDscr!!.getReceivedPercent()
-                sendReceptionProgress(ratio.toString())
-                notifier.updateProgressDialog("Receiving data ${"%.2f".format(ratio)} %")
+                if (round(ratio) > prevRatio) {
+                    sendReceptionProgress(ratio.toString())
+                    prevRatio = round(ratio)
+                    notifier.updateProgressDialog("Receiving data ${"%.2f".format(round(ratio))} %")
+                }
             }
         } catch (e: IOException) {
             Log.d(TAG, e.toString())
