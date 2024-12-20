@@ -1,0 +1,27 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/bluetooth_menu_item_bluetooth_settings"
+        android:title="@string/settings_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/bluetooth_menu_item_bluetooth_server"
+        android:title="@string/create_server_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/bluetooth_menu_item_bluetooth_discovery"
+        android:title="@string/discover_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/bluetooth_menu_item_start_ble_advertising"
+        android:title="@string/start_ble_advertising"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/bluetooth_menu_item_start_ble_service"
+        android:title="@string/start_ble_service"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/bluetooth_menu_item_discover_ble_devices"
+        android:title="@string/discover_ble_button"
+        app:showAsAction="withText" />
+</menu>

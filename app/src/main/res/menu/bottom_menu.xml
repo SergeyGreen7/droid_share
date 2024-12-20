@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/item_wifi_direct_botm"
+        android:icon="@drawable/bottom_menu_wifi_icon"
+        android:title="@string/bottom_menu_wifi_title"/>
+
+    <item
+        android:id="@+id/item_bluetooth_botm"
+        android:icon="@drawable/bottom_menu_bluetooth_icon"
+        android:title="@string/bottom_menu_bluetooth_title"/>
+
+    <item
+        android:id="@+id/item_nfc_botm"
+        android:icon="@drawable/bottom_menu_nfc_icon"
+        android:title="@string/bottom_menu_nfc_title"/>
+</menu>

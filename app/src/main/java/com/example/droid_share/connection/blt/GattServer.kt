@@ -21,6 +21,7 @@ import android.os.ParcelUuid
 import android.util.Log
 import com.example.droid_share.connection.GattClient.Companion
 import java.util.UUID
+import kotlin.random.Random
 
 class GattServer(
     private val context: Context,
@@ -30,7 +31,8 @@ class GattServer(
         private const val TAG = "GattServer"
 
         val GATT_SERVICE_UUID: UUID = UUID.fromString("5116c812-ad72-449f-a503-f8662bc21cde")
-        val GATT_CHARACT_UUID: UUID = UUID.fromString("330fb1d7-afb6-4b00-b5da-3b0feeef9816")
+        val GATT_CHARACTER_SERVICE_CONFIG_UUID: UUID = UUID.fromString("330fb1d7-afb6-4b00-b5da-3b0feeef9816")
+        val GATT_CHARACTER_CONNECTION_STATE_UUID: UUID = UUID.fromString("330fb1d7-afb6-4b00-b5da-3b0feeef9816")
     }
 
     private var isActive = false
@@ -38,21 +40,32 @@ class GattServer(
     private var advertiser: BluetoothLeAdvertiser? = null
     private var gattServer: BluetoothGattServer? = null
     private var devices: MutableList<BluetoothDevice>
+    private lateinit var pseudoRandomData: ByteArray
+
+    var referenceData = ""
+    var callbackOnDataReception: ((flag: Boolean, name:String) -> Unit)? = null
 
     init {
         if (manager.adapter.isEnabled) {
             advertiser = manager.adapter.bluetoothLeAdvertiser
+            advertiser
         }
         devices = mutableListOf()
+
+        pseudoRandomData = ByteArray(8)
+        Random.nextBytes(pseudoRandomData, 0, 7)
+        Log.d(TAG, "pseudoRandomData.size = ${pseudoRandomData.size}")
     }
 
     private val advertiseCallback = object : AdvertiseCallback() {
         override fun onStartSuccess(settingsInEffect: AdvertiseSettings) {
-            Log.d(TAG, "GattServer, AdvertiseCallback-onStartSuccess(), Peripheral advertising started.")
+            Log.d(TAG, "GattServer, AdvertiseCallback-onStartSuccess(), " +
+                    "Peripheral advertising started.")
         }
-
         override fun onStartFailure(errorCode: Int) {
-            Log.d(TAG, "GattServer, AdvertiseCallback-onStartFailure(), Peripheral advertising failed: $errorCode")
+            Log.d(TAG, "GattServer, onStartFailure(), " +
+                    "Peripheral advertising failed: $errorCode - " +
+                    " ${GattUtils.getAdvertiseFailure(errorCode)}")
         }
     }
 
@@ -67,7 +80,9 @@ class GattServer(
 
     @SuppressLint("MissingPermission")
     fun stopBleService() {
+        Log.d(TAG, "GattClient, start stopBleService")
         if (isActive) {
+            Log.d(TAG, "    do stopBleService")
             isActive = false
             isConnected = false
             gattServer?.clearServices()
@@ -85,11 +100,17 @@ class GattServer(
             GATT_SERVICE_UUID,
             BluetoothGattService.SERVICE_TYPE_PRIMARY)
 
-        val writeCharacteristic = BluetoothGattCharacteristic(
-            GATT_CHARACT_UUID,
+        val serviceConfigCharacteristic = BluetoothGattCharacteristic(
+            GATT_CHARACTER_SERVICE_CONFIG_UUID,
             BluetoothGattCharacteristic.PROPERTY_WRITE,
             BluetoothGattCharacteristic.PERMISSION_WRITE)
-        service.addCharacteristic(writeCharacteristic)
+        service.addCharacteristic(serviceConfigCharacteristic)
+
+        val connectStateCharacteristic = BluetoothGattCharacteristic(
+            GATT_CHARACTER_CONNECTION_STATE_UUID,
+            BluetoothGattCharacteristic.PROPERTY_WRITE,
+            BluetoothGattCharacteristic.PERMISSION_WRITE)
+        service.addCharacteristic(connectStateCharacteristic)
 
          gattServer?.addService(service)
     }
@@ -108,9 +129,17 @@ class GattServer(
 
         val parcelUuid = ParcelUuid(GATT_SERVICE_UUID)
         val data = AdvertiseData.Builder()
-            .setIncludeDeviceName(true)
+             .setIncludeDeviceName(true)
             .addServiceUuid(parcelUuid)
+            // .addManufacturerData(0, pseudoRandomData)
+//            .addTransportDiscoveryData()
+//            .addServiceData(parcelUuid, pseudoRandomData)
+//            .addManufacturerData(0, "0123456789".toByteArray(Charsets.US_ASCII))
             .build()
+
+        for (d in data.serviceData) {
+            Log.d(TAG, "${d.key} = ${d.value.size}")
+        }
 
         advertiser?.startAdvertising(settings, data, null, advertiseCallback)
     }
@@ -177,7 +206,7 @@ class GattServer(
 
             Log.d(TAG, "value.size = ${value.size}")
 
-            if (characteristic.uuid == GATT_CHARACT_UUID) {
+            if (characteristic.uuid == GATT_CHARACTER_SERVICE_CONFIG_UUID) {
                 Log.d(TAG, "GattServer, onCharacteristicWriteRequest, sendResponse")
                 gattServer?.sendResponse(device, requestId, BluetoothGatt.GATT_SUCCESS, 0, null)
                 val length = value.size
@@ -188,6 +217,12 @@ class GattServer(
 
                 val message = value.toString(Charsets.UTF_8)
                 Log.d(TAG, "received message: '$message'")
+
+                val prefix =  message.substringBefore("@")
+                val service_name = message.substringAfter("@")
+                Log.d(TAG, "service_name = $service_name")
+
+                callbackOnDataReception?.invoke(prefix == referenceData, service_name)
 
                 Log.d(TAG, "GattServer, onCharacteristicWriteRequest, notifyCharacteristicChanged")
                 for (d in devices) {

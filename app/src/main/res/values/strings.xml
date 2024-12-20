@@ -1,14 +1,17 @@
 <resources>
     <string name="app_name">droid_share</string>
 
-    <string name="enable_p2p_button">Wi-Fi settings</string>
+    <string name="settings_wifi_button">Wi-Fi settings</string>
+    <string name="settings_bluetooth_button">Bluetooth settings</string>
+    <string name="settings_nfc_button">NFC settings</string>
+
     <string name="create_wifi_direct_service_button">Create Wi-Fi direct service</string>
     <string name="remove_wifi_direct_service_button">Remove Wi-Fi direct service</string>
     <string name="start_discover_wifi_direct_services_button">Start discovering of Wi-Fi direct services</string>
     <string name="stop_discover_wifi_direct_services_button">Stop discovering of Wi-Fi direct services</string>
     <string name="start_discover_wifi_peers_button">Start discovering of Wi-Fi P2P peers</string>
     <string name="stop_discover_wifi_peers_button">Stop discovering of Wi-Fi P2P peers</string>
-    <string name="discover_bluetooth_button">Discover bluetooth</string>
+    <string name="discover_bluetooth_button">Discover bluetooth devices</string>
     <string name="create_server_bluetooth_button">Create bluetooth server</string>
     <string name="remove_server_bluetooth_button">Remove bluetooth server</string>
     <string name="start_discover_lns_button">Start discover local network services</string>
@@ -16,11 +19,15 @@
     <string name="create_local_service_button">Create local network service</string>
     <string name="remove_local_service_button">Remove local network service</string>
     <string name="send_nfc_message_button">Send NFC message</string>
+    <string name="receive_nfc_message_button">Receive NFC message</string>
     <string name="discover_ble_button">Discover BLE devices</string>
     <string name="start_ble_advertising">Start BLE advertising</string>
     <string name="start_ble_service">Start BLE service</string>
     <string name="stop_ble_service">Stop BLE service</string>
 
+    <string name="bottom_menu_wifi_title">Wi-Fi</string>
+    <string name="bottom_menu_bluetooth_title">Bluetooth</string>
+    <string name="bottom_menu_nfc_title">NFC</string>
 
     <string name="p2p_off_warning">Enable P2P from action bar button above or system settings</string>
     <string name="discovery_initiated">P2P Discovery started</string>
@@ -43,4 +50,20 @@
     <string name="select_file_to_transmit">Click on \'Select File\' button to pick a local(stored) file for transmission</string>
     <string name="client_text">This device will act as a client. </string>
     <string name="server_text">This device will act as a server. </string>
+
+    <string name="servicedesc">NFC_HCE_NDEF_EMULATOR</string>
+    <string name="aiddescription">NFC HCE NDEF Emulator</string>
+
+    <string name="header_sender">Emulate NFC Forum Type-4 tag with a NDEF message.\nTo read the message you need a separate reader app running on a second device.</string>
+    <string name="nfc_write">NFC write:</string>
+
+    <string name="header_receiver">This app reads an NDEF message from an emulated NFC tag using Ndef protocol. For sending you need a separate sender app running on a second device.</string>
+    <string name="description_receiver">This example expects a class 4 type tag with an NDEF record (RTD_TEXT).\nIt uses an aid-filter D2760000850101 for the APDU SELECT command.\nWhen a tag is discovered the data from all pages will be read.</string>
+    <string name="nfc_read">NFC read:</string>
+
+    <string name="file_share_send_button">Send</string>
+    <string name="file_share_cancel_button">Cancel</string>
+    <string name="file_share_enable_ble_button">Enable BLE</string>
+    <string name="file_share_disable_ble_button">Disable BLE</string>
+
 </resources>

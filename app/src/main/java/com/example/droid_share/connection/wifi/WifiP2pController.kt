@@ -15,7 +15,7 @@ import androidx.annotation.RequiresApi
 import com.example.droid_share.NotificationInterface
 import com.example.droid_share.Utils
 import com.example.droid_share.connection.WifiDirectServiceScanner.Companion
-
+import com.example.droid_share.connection.wifi.WifiP2pConnector
 
 class WifiP2pController(
     private val manager: WifiP2pManager,
@@ -34,6 +34,7 @@ class WifiP2pController(
     val peerScanner = WifiDirectPeerScanner(manager, channel, notifier)
     private val serviceScanner = WifiDirectServiceScanner(manager, channel, notifier)
     private val service = WifiDirectService(manager, channel)
+    private val connector = WifiP2pConnector(notifier)
 
     private var isWifiP2pEnabled = false
     private val buddies = mutableMapOf<String, String>()
@@ -69,28 +70,38 @@ class WifiP2pController(
     }
 
     @SuppressLint("MissingPermission")
-    fun connectP2pDevice(deviceAddress: String, name: String) {
+    fun connectP2pDevice(device: WifiP2pDevice, deviceAddress: String, name: String) {
+        Log.d(TAG, "start connectP2pDevice()")
         val config = WifiP2pConfig()
         config.deviceAddress = deviceAddress
         config.wps.setup = WpsInfo.PBC
         config.groupOwnerIntent = 0
 
-        manager.connect(channel, config, object : ActionListener {
-            override fun onSuccess() {
-                // Success!
-                Log.d(TAG, "WifiP2pController, connect(), onSuccess")
-                val wlanInetAddress = Utils.getInetAddress("wlan")
-                val p2pInetAddress = Utils.getInetAddress("p2p")
-                if (wlanInetAddress != null) {
-                    Log.d(TAG, "WifiP2pController, WLAN IP = ${wlanInetAddress.hostAddress}")
-                }
-                if (p2pInetAddress != null) {
-                    Log.d(TAG, "WifiP2pController, P2P IP = ${p2pInetAddress.hostAddress}")
+        if (device.status == WifiP2pDevice.INVITED ||
+            device.status == WifiP2pDevice.AVAILABLE) {
+            cancelP2pConnection()
+        } else if (device.status == WifiP2pDevice.CONNECTED) {
+            manager.requestGroupInfo(channel) { group ->
+                if (group != null) {
+                    manager.removeGroup(channel, object : ActionListener {
+                        override fun onSuccess() {
+                            Log.d(TAG, "WifiP2pController, removeGroup - onSuccess()")
+                            connectP2pDevice(device, deviceAddress, name)
+                        }
+                        override fun onFailure(reason: Int) {
+                            Log.d(TAG, "WifiP2pController, removeGroup - onFailure() - ${WifiUtils.getErrorCodeDescription(reason)}")
+                        }
+                    })
                 }
             }
+            return
+        }
 
+        manager.connect(channel, config, object : ActionListener {
+            override fun onSuccess() {
+                Log.d(TAG, "WifiP2pController, connect(), onSuccess")
+            }
             override fun onFailure(code: Int) {
-                // Command failed. Check for P2P_UNSUPPORTED, ERROR, or BUSY
                 Log.d(TAG, "connect(), onFailure, ${WifiUtils.getErrorCodeDescription(code)}")
             }
         })
@@ -105,9 +116,9 @@ class WifiP2pController(
 
         if (
             device.status == WifiP2pDevice.CONNECTED ||
-            device.status == WifiP2pDevice.UNAVAILABLE) {
+            device.status == WifiP2pDevice.UNAVAILABLE ||
+            device.status == WifiP2pDevice.FAILED){
             cancelP2pConnection()
-
             manager.requestGroupInfo(channel) { group ->
                 if (group != null) {
                     manager.removeGroup(channel, object : ActionListener {
@@ -132,17 +143,17 @@ class WifiP2pController(
             override fun onSuccess() {
                 Log.d(TAG, "cancelConnect(), onSuccess")
             }
-
             override fun onFailure(code: Int) {
                 Log.d(TAG, "cancelConnect(), onFailure, ${WifiUtils.getErrorCodeDescription(code)}")
             }
         })
     }
 
-    fun requestConnectionInfo(listener: ConnectionInfoListener) {
-        manager.requestConnectionInfo(channel, listener)
+    fun requestConnectionInfo() {
+        manager.requestConnectionInfo(channel, connector)
     }
 
+    @RequiresApi(Build.VERSION_CODES.Q)
     @SuppressLint("MissingPermission")
     private fun createP2pGroup(deviceAddress: String, name: String) {
 

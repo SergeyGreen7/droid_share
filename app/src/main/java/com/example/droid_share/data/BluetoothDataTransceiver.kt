@@ -16,16 +16,13 @@ import java.util.UUID
 
 class BluetoothDataTransceiver(
     private var notifier : NotificationInterface
-) {
+) : BaseDataTransceiver()
+{
 
     companion object {
         private const val TAG = "BluetoothDataTransceiver"
     }
 
-    private var socketJob: Job? = null
-    private var fileJob: Job? = null
-
-    private var dataTransceiver: DataTransceiver? = null
     private var bltClientServer: BluetoothClientServer? = null
 
     var bluetoothController: BluetoothController? = null
@@ -36,8 +33,8 @@ class BluetoothDataTransceiver(
     }
 
     fun isConnectionEstablished(): Boolean {
-        Log.d(TAG, "isConnectionEstablished(), isJobActive(fileJob) = ${isJobActive(fileJob)}")
-        return isJobActive(fileJob)
+        Log.d(TAG, "isConnectionEstablished(), isJobActive(fileJob) = ${isJobActive(rxJob)}")
+        return isJobActive(rxJob)
     }
 
     suspend fun startServer(server: BluetoothServerSocket) {
@@ -52,10 +49,10 @@ class BluetoothDataTransceiver(
                 bltClientServer!!.getInputStream(),
                 bltClientServer!!.getOutputStream()
             )
-            fileJob = CoroutineScope(Dispatchers.IO).launch {
-                dataTransceiver!!.doInBackground(TxFilePackDescriptor())
+            rxJob = CoroutineScope(Dispatchers.IO).launch {
+                dataTransceiver!!.receptionFlow()
             }
-            Log.d(TAG, "startServer(), isJobActive(fileJob) = ${isJobActive(fileJob)}")
+            Log.d(TAG, "startServer(), isJobActive(fileJob) = ${isJobActive(rxJob)}")
         }
     }
 
@@ -76,35 +73,18 @@ class BluetoothDataTransceiver(
                 bltClientServer!!.getInputStream(),
                 bltClientServer!!.getOutputStream()
             )
-            fileJob = CoroutineScope(Dispatchers.IO).launch {
-                dataTransceiver!!.doInBackground(TxFilePackDescriptor())
+            rxJob = CoroutineScope(Dispatchers.IO).launch {
+                dataTransceiver!!.receptionFlow()
             }
-            Log.d(TAG, "startClient(), isJobActive(fileJob) = ${isJobActive(fileJob)}")
+            Log.d(TAG, "startClient(), isJobActive(fileJob) = ${isJobActive(rxJob)}")
         }
     }
 
     fun destroySocket() {
-        if (isJobActive(socketJob)) {
-            Log.d(TAG, "run socketJob.cancel()")
-            socketJob!!.cancel("Software stop file reception job")
-        }
-        if (isJobActive(fileJob)) {
-            Log.d(TAG, "run fileJob.cancel()")
-            fileJob!!.cancel("Software stop file reception job")
-        }
-
-        if (bltClientServer!!.isClientConnected()) {
+        CoroutineScope(Dispatchers.IO).launch {
+            stopActiveJobs()
             dataTransceiver!!.shutdown()
             bltClientServer!!.shutdown()
         }
     }
-
-    private fun isJobActive(job: Job?) : Boolean {
-        return (job != null) && job.isActive
-    }
-
-    suspend fun sendData(filePack: TxFilePackDescriptor) {
-        dataTransceiver!!.initiateDataTransmission(filePack)
-    }
-
 }

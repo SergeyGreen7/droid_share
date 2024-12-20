@@ -11,14 +11,14 @@ import android.net.wifi.p2p.WifiP2pManager.ConnectionInfoListener
 import android.net.wifi.p2p.WifiP2pManager.PeerListListener
 import android.os.Parcelable
 import android.util.Log
-import com.example.droid_share.MainActivity
+import androidx.fragment.app.FragmentActivity
 
 /**
  * A BroadcastReceiver that notifies of important wifi p2p events.
  */
 class WifiP2pBroadcastReceiver(
     private val controller: WifiP2pController,
-    private val activity: MainActivity
+    private val activity: FragmentActivity?
 ) : BroadcastReceiver() {
 
     companion object {
@@ -64,7 +64,7 @@ class WifiP2pBroadcastReceiver(
             if (networkInfo.isConnected) {
                 // we are connected with the other device, request connection
                 // info to find group owner IP
-                controller.requestConnectionInfo(activity as ConnectionInfoListener)
+                controller.requestConnectionInfo()
             } else {
                 // It's a disconnect
                 // activity.resetData()

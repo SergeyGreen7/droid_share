@@ -3,6 +3,7 @@ package com.example.droid_share.data
 enum class MessageType {
     FILE_PACK_DSCR,
     FILE,
+    CANCEL_TX,
     CANCEL_RX,
     PROGRESS_RX,
     RECEPTION_DONE,
@@ -18,6 +19,7 @@ fun isMessageControl(type: MessageType): Boolean {
         MessageType.PROGRESS_RX -> {
             false
         }
+        MessageType.CANCEL_TX,
         MessageType.CANCEL_RX,
         MessageType.RECEPTION_DONE,
         MessageType.TX_REQUEST,

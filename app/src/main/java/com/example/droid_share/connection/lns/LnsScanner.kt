@@ -24,27 +24,17 @@ class LnsScanner (
 )
 {
     companion object {
-        private const val TAG = "KnsScanner"
-//        private const val SERVICE_TYPE =  LnsService.SERVICE_TYPE // "_wifinsd._tcp."
-//        private val SERVICE_PORT = 8890
-//        private val NSD_PROTOCOL = NsdManager.PROTOCOL_DNS_SD
+        private const val TAG = "LnsScanner"
     }
 
     private var isActive = false
+    private var referenceServiceName = ""
+    private var showResolvedServices = true
     private var resolveListenerBusy = AtomicBoolean(false)
     private var pendingNsdServices = ConcurrentLinkedQueue<NsdServiceInfo>()
+
     private var services = HashMap<String, NsdServiceInfo>()
-
-    // private var serviceList = mutableListOf<NsdServiceInfo>()
-//    private var serviceInfo: NsdServiceInfo = NsdServiceInfo()
-
-//    init {
-//        serviceInfo.serviceName = "NSD_AQUARIUS"
-//        serviceInfo.serviceType = SERVICE_TYPE
-//    }
-//    fun getServiceInfo(): NsdServiceInfo {
-//        return serviceInfo
-//    }
+    var callbackOnRefServiceFind: ((serviceInfo: NsdServiceInfo)-> Unit)? = null
 
     private val discoveryListener = object: NsdManager.DiscoveryListener {
         override fun onStartDiscoveryFailed(serviceType: String?, errorCode: Int) {
@@ -72,6 +62,8 @@ class LnsScanner (
                 Log.d(TAG, "Hello from executor!")
             }
 
+            Log.d(TAG, "discoverServices(), serviceInfo!!.serviceName = ${serviceInfo!!.serviceName}")
+
             if (resolveListenerBusy.compareAndSet(false, true)) {
                 // manager.registerServiceInfoCallback(serviceInfo!!, executor, resolveListener2)
                 manager.resolveService(serviceInfo, resolveListener)
@@ -95,9 +87,17 @@ class LnsScanner (
             Log.d(TAG, "Resolve Succeeded. $serviceInfo")
             services[serviceInfo.serviceType] = serviceInfo
 
+            if (referenceServiceName.isNotEmpty()) {
+                if (referenceServiceName == serviceInfo.serviceName) {
+                    callbackOnRefServiceFind?.invoke(serviceInfo)
+                }
+            }
+
             resolveNextInQueue()
 
-            showDiscoveredDevices()
+            if (referenceServiceName.isEmpty()) {
+                showDiscoveredDevices()
+            }
         }
     }
 
@@ -134,6 +134,10 @@ class LnsScanner (
 //    }
 
     fun startScan() {
+        if (isActive) {
+            return
+        }
+
         services.clear()
         isActive = true
         showDiscoveredDevices()
@@ -143,13 +147,25 @@ class LnsScanner (
     }
 
     fun stopScan() {
+        if (!isActive) {
+            return
+        }
         isActive = false
         Log.d(TAG, "LnsScanner, stopScan()")
         manager.stopServiceDiscovery(discoveryListener)
     }
 
     private fun showDiscoveredDevices() {
-        notifier.onDeviceListUpdate(services.map { DeviceInfo(it.value) })
+        if (showResolvedServices) {
+            notifier.onDeviceListUpdate(services.map { DeviceInfo(it.value) })
+        }
+    }
+
+    fun scanForService(name: String) {
+        referenceServiceName = name
+        showResolvedServices = false
+        Log.d(TAG, "LnsScanner, findService()")
+        startScan()
     }
 }
 

@@ -25,8 +25,6 @@ class BluetoothClientServer {
 
     companion object {
         private const val TAG = "BluetoothClientServer"
-        const val PORT_NUMBER = 8889
-        private val CLIENT_CONNECTION_TIMEOUT_MS = 30000
 
         private const val BLUETOOTH_SERVER_NAME = "ns220re_bluetooth_server"
     }

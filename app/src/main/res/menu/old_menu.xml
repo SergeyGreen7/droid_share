@@ -1,0 +1,51 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/old_menu_item_wifi_settings"
+        android:title="@string/settings_wifi_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_create_service"
+        android:title="@string/create_wifi_direct_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_discover_wifi_direct_services"
+        android:title="@string/start_discover_wifi_direct_services_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_wifi_direct_peer_discovery"
+        android:title="@string/start_discover_wifi_peers_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_bluetooth_server"
+        android:title="@string/create_server_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_bluetooth_discovery"
+        android:title="@string/discover_bluetooth_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_create_local_network_service"
+        android:title="@string/create_local_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_discover_local_network_service"
+        android:title="@string/start_discover_lns_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_send_nfc_message"
+        android:title="@string/send_nfc_message_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_discover_ble_devices"
+        android:title="@string/discover_ble_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_start_ble_advertising"
+        android:title="@string/start_ble_advertising"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/old_menu_item_start_ble_service"
+        android:title="@string/start_ble_service"
+        app:showAsAction="withText" />
+</menu>

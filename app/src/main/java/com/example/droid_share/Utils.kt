@@ -22,7 +22,7 @@ class Utils {
                         val inetAddress = getInetAddress(item)
                         if (inetAddress != null && TextUtils.isEmpty(inetAddress.hostName)) {
                             Log.d(TAG, "NetworkInterface name: ${item.name}")
-                            Log.d(TAG, "NetworkInterface HostAddres: ${inetAddress.hostAddress}")
+                            Log.d(TAG, "NetworkInterface HostAddress: ${inetAddress.hostAddress}")
                         }
                     }
                 }

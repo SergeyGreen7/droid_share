@@ -1,6 +1,10 @@
 package com.example.droid_share
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.net.Uri
 import android.os.Environment
+import android.provider.OpenableColumns
 import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
@@ -13,7 +17,7 @@ class RxFileDescriptor {
     var fileSize = 0
 }
 
-class TxFileDescriptor(
+data class TxFileDescriptor(
     val fileName: String,
     val fileSize: Int,
     val inputStream: InputStream
@@ -42,6 +46,14 @@ class TxFilePackDescriptor() {
     }
     fun isNotEmpty(): Boolean {
         return size > 0
+    }
+    override fun toString(): String {
+        val sb = StringBuilder()
+            .append("size = $size\n")
+        for (dscr in dscrs) {
+            sb.append(" - $dscr\n")
+        }
+        return sb.toString()
     }
 }
 
@@ -111,6 +123,18 @@ class FileManager {
             if (file.exists()) {
                 file.delete()
             }
+        }
+
+        @SuppressLint("Range")
+        fun getTxFileDescriptor(context : Context, uri: Uri): TxFileDescriptor {
+            val cursor = context.contentResolver?.query(uri, null, null, null, null)
+            cursor?.moveToFirst()
+            val fileName = cursor?.getString(cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME))
+            val fileSize = cursor?.getString(cursor.getColumnIndex(OpenableColumns.SIZE))?.toInt()
+            cursor?.close()
+            val inputStream = context.contentResolver?.openInputStream(uri)
+
+            return TxFileDescriptor(fileName!!, fileSize!!, inputStream!!)
         }
 
         private fun getFullPath(fileName : String) : String {

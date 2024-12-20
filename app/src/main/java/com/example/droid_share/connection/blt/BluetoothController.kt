@@ -38,13 +38,14 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 
 
+@SuppressLint("MissingPermission")
 class BluetoothController(
     private val context: Context,
     private val manager : BluetoothManager,
     private val notifier: NotificationInterface
 )
 {
-    private lateinit var advertiser: BluetoothLeAdvertiser
+    private var advertiser: BluetoothLeAdvertiser? = null
     private var currentAdvertisingSet: AdvertisingSet? = null
 
     private var devices = HashMap<String, BluetoothDevice>()
@@ -55,8 +56,6 @@ class BluetoothController(
 
     companion object {
         private const val TAG = "BluetoothController"
-
-
     }
 
     private var bluetoothSupport = false
@@ -69,13 +68,14 @@ class BluetoothController(
             throw Exception("Current device doesn't support bluetooth")
         }
         adapter = manager.adapter
+        advertiser = adapter.bluetoothLeAdvertiser
+
+        Log.d(TAG, "adapter.name = ${adapter.name}")
 
         Log.d(TAG, "isLe2MPhySupported: ${adapter.isLe2MPhySupported}")
         Log.d(TAG, "isLeCodedPhySupported: ${adapter.isLeCodedPhySupported}")
         Log.d(TAG, "isLeExtendedAdvertisingSupported: ${adapter.isLeExtendedAdvertisingSupported}")
         Log.d(TAG, "isLePeriodicAdvertisingSupported: ${adapter.isLePeriodicAdvertisingSupported}")
-
-        advertiser = adapter.bluetoothLeAdvertiser
 
         receiver = object : BroadcastReceiver() {
             @SuppressLint("MissingPermission")
@@ -93,7 +93,7 @@ class BluetoothController(
                         Log.d(TAG, "    address:        ${device.address}")
                         Log.d(TAG, "    type:           ${device.type}")
                         Log.d(TAG, "    class:          ${device.bluetoothClass}")
-                        Log.d(TAG, "    alias:          ${device.alias}")
+                        // Log.d(TAG, "    alias:          ${device.alias}")
                         Log.d(TAG, "    bondState:      ${device.bondState}")
                         Log.d(TAG, "    uuids:          ${device.uuids}")
 
@@ -113,6 +113,10 @@ class BluetoothController(
 
     fun isBluetoothEnabled(): Boolean {
         return adapter.isEnabled
+    }
+
+    fun getName(): String {
+        return adapter.name
     }
 
     @SuppressLint("MissingPermission")
@@ -249,7 +253,7 @@ class BluetoothController(
             }
         }
 
-        advertiser.startAdvertisingSet(parameters, data, null, null, null, callback)
+        advertiser?.startAdvertisingSet(parameters, data, null, null, null, callback)
 
         delay(5000)
         // After onAdvertisingSetStarted callback is called, you can modify the
@@ -283,6 +287,14 @@ class BluetoothController(
 
     fun startBleDiscovery() {
         gattScanner.startScan()
+    }
+
+    fun startBleDiscovery(isPeriodic: Boolean) {
+        if (isPeriodic) {
+            gattScanner.startScanPeriodic()
+        } else {
+            gattScanner.startScan()
+        }
     }
 
     fun stopBleDiscovery() {

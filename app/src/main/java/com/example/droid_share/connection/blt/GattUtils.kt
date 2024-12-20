@@ -1,6 +1,7 @@
 package com.example.droid_share.connection
 
 import android.bluetooth.BluetoothGatt
+import android.bluetooth.le.AdvertiseCallback
 
 class GattUtils {
     companion object {
@@ -50,6 +51,30 @@ class GattUtils {
                 append(statusStr)
                 append("'")
             }
+        }
+
+        fun getAdvertiseFailure(errorCode: Int): String {
+            var errorStr = "Unknown advertise failure code"
+            when (errorCode) {
+                AdvertiseCallback.ADVERTISE_FAILED_DATA_TOO_LARGE -> {
+                    errorStr = "Failed to start advertising as the advertise data " +
+                            "to be broadcasted is larger than 31 bytes."
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_TOO_MANY_ADVERTISERS -> {
+                    errorStr = "Failed to start advertising because no" +
+                            " advertising instance is available"
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_ALREADY_STARTED -> {
+                    errorStr = "Failed to start advertising as the advertising is already started"
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_INTERNAL_ERROR -> {
+                    errorStr = "Operation failed due to an internal error"
+                }
+                AdvertiseCallback.ADVERTISE_FAILED_FEATURE_UNSUPPORTED -> {
+                    errorStr = "This feature is not supported on this platform"
+                }
+            }
+            return errorStr
         }
     }
 }

@@ -19,11 +19,11 @@ class DeviceGridView(
         customAdapter = DeviceCustomAdapter(statusUpdater)
         recyclerView.adapter = customAdapter
 
-        val tmpList = listOf(
-            DeviceInfo("qeqwe","qweqwe"),
-            DeviceInfo("asdasdasd","asdasdasd")
-        )
-        customAdapter.updateDataSet(tmpList)
+//        val tmpList = listOf(
+//            DeviceInfo("qeqwe","qweqwe"),
+//            DeviceInfo("asdasdasd","asdasdasd")
+//        )
+//        customAdapter.updateDataSet(tmpList)
     }
 
     fun updateDataSet(deviceList: List<DeviceInfo>) {

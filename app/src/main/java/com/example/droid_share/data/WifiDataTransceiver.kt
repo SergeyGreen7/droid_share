@@ -6,41 +6,44 @@ import com.example.droid_share.NotificationInterface
 import com.example.droid_share.TxFilePackDescriptor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.io.InputStream
-import java.io.OutputStream
 
 class WifiDataTransceiver(
     private var notifier : NotificationInterface
-) {
+) : BaseDataTransceiver()
+{
     companion object {
         private const val TAG = "WifiDataTransceiver"
+        private const val PORT_NUMBER = 8888
+        private val CLIENT_CONNECTION_TIMEOUT_MS = 30000
     }
 
-    private var socketJob: Job? = null
-    private var fileJob: Job? = null
-
-    private var dataTransceiver: DataTransceiver? = null
-    private var wifiClientServer: WifiClientServer? = null
+    private var wifiClientServer: TcpP2pConnector? = null
 
     init {
         dataTransceiver = DataTransceiver(notifier)
-        wifiClientServer = WifiClientServer()
+        wifiClientServer = TcpP2pConnector()
     }
 
     fun isConnectionEstablished(): Boolean {
-        return isJobActive(fileJob)
+        return wifiClientServer?.isConnectionEstablished() ?: false
     }
 
     suspend fun createSocket(info: WifiP2pInfo, txFilePack: TxFilePackDescriptor) {
-        if (!wifiClientServer!!.isSocketCreated()) {
-            if (socketJob != null && socketJob!!.isActive) {
-                return
-            }
+        Log.d(TAG, "WifiDataTransceiver, start createSocket(), " +
+                "!wifiClientServer!!.isSocketCreated() = ${!wifiClientServer!!.isSocketCreated()}")
+        this.txFilePack = txFilePack.copy()
+
+        if (!isJobActive(rxJob)) {
+
             socketJob = CoroutineScope(Dispatchers.IO).launch {
-                wifiClientServer!!.doInBackground(info)
+                if (info.isGroupOwner) {
+                    wifiClientServer!!.createServer(PORT_NUMBER)
+                } else {
+                    wifiClientServer!!.createClient(info.groupOwnerAddress,
+                        PORT_NUMBER, CLIENT_CONNECTION_TIMEOUT_MS)
+                }
             }
             socketJob!!.join()
             Log.d(TAG, "socketJob!!.join()")
@@ -52,32 +55,22 @@ class WifiDataTransceiver(
                     wifiClientServer!!.getInputStream(),
                     wifiClientServer!!.getOutputStream()
                 )
-                fileJob = CoroutineScope(Dispatchers.IO).launch {
-                    dataTransceiver!!.doInBackground(txFilePack)
+                txJob = CoroutineScope(Dispatchers.IO).launch {
+                    dataTransceiver!!.transmissionFlow(txFilePack)
+                }
+                rxJob = CoroutineScope(Dispatchers.IO).launch {
+                    dataTransceiver!!.receptionFlow()
                 }
             }
         }
     }
 
     fun destroySocket() {
-        if (isJobActive(socketJob)) {
-            socketJob!!.cancel("Software stop file socket creation job")
-        }
-        if (isJobActive(fileJob)) {
-            fileJob!!.cancel("Software stop file reception job")
-        }
-
-        if (wifiClientServer!!.isSocketCreated()) {
+        CoroutineScope(Dispatchers.IO).launch {
+            stopActiveJobs()
             dataTransceiver!!.shutdown()
             wifiClientServer!!.shutdown()
         }
     }
 
-    private fun isJobActive(job: Job?) : Boolean {
-        return (job != null) && job.isActive
-    }
-
-    suspend fun sendData(filePack: TxFilePackDescriptor) {
-        dataTransceiver!!.initiateDataTransmission(filePack)
-    }
 }

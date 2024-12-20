@@ -9,6 +9,8 @@ import com.example.droid_share.NotificationInterface
 import com.example.droid_share.grid.DeviceInfo
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.net.Inet4Address
 import java.net.Inet6Address
@@ -22,18 +24,21 @@ class LnsService (
 {
     companion object {
         const val SERVICE_NAME = "NSD_AQUARIUS"
-        const val SERVICE_TYPE = "_wifi_lns._tcp."
+        const val SERVICE_TYPE = "_wifi_lns_fs._tcp."
         const val NSD_PROTOCOL = NsdManager.PROTOCOL_DNS_SD
 
         private const val TAG = "LnsService"
-        private const val SERVICE_PORT = 8890
+        private const val SERVICE_PORT = 8889
     }
 
     // private var serviceList = mutableListOf<NsdServiceInfo>()
+    private var serviceRegistered = false
+
     var serviceInfo: NsdServiceInfo = NsdServiceInfo()
+    var serviceName = ""
 
     init {
-        serviceInfo.serviceName = "NSD_AQUARIUS" + (Math.random() % 1000).toString()
+        serviceInfo.serviceName = "LNS_AQUARIUS-" + (Math.random() * 1000).toInt().toString()
 
         serviceInfo.serviceType = SERVICE_TYPE
         serviceInfo.port        = SERVICE_PORT
@@ -58,11 +63,20 @@ class LnsService (
     }
 
     fun registerService() {
+        if (serviceName.isNotEmpty()) {
+            serviceInfo.serviceName = serviceName
+        }
+        serviceRegistered = true
         manager.registerService(serviceInfo, NSD_PROTOCOL, registrationListener)
     }
 
     fun unregisterService() {
-        manager.unregisterService(registrationListener)
+        Log.d(TAG, "start unregisterService()")
+        if (serviceRegistered) {
+            Log.d(TAG, "    do unregisterService()")
+            manager.unregisterService(registrationListener)
+            serviceRegistered = false
+        }
     }
 }
 

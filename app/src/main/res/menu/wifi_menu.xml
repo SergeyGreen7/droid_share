@@ -1,0 +1,28 @@
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/wifi_menu_item_wifi_settings"
+        android:icon="@drawable/ic_action_on_off"
+        android:title="@string/settings_wifi_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/wifi_menu_item_create_service"
+        android:title="@string/create_wifi_direct_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/wifi_menu_item_discover_wifi_direct_services"
+        android:title="@string/start_discover_wifi_direct_services_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/wifi_menu_item_wifi_direct_peer_discovery"
+        android:title="@string/start_discover_wifi_peers_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/wifi_menu_item_create_local_network_service"
+        android:title="@string/create_local_service_button"
+        app:showAsAction="withText" />
+    <item
+        android:id="@+id/wifi_menu_item_discover_local_network_service"
+        android:title="@string/start_discover_lns_button"
+        app:showAsAction="withText" />
+</menu>

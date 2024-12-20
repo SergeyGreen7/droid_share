@@ -1,6 +1,7 @@
 package com.example.droid_share.connection
 
 import android.annotation.SuppressLint
+import android.bluetooth.BluetoothGatt
 import android.bluetooth.le.BluetoothLeScanner
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
@@ -15,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class GattScanner (
     private val scanner: BluetoothLeScanner,
@@ -23,11 +25,15 @@ class GattScanner (
 
     companion object {
         private const val TAG = "GattScanner"
-        private val BLE_SCAN_PERIOD = 5000L
+        private val BLE_SCAN_PERIOD_SINGLE = 5000L
+        private val BLE_SCAN_PERIOD_MULTIPLE = 1000L
+        private val LIST_UPDATE_TIME = 5000L
+        private val NUM_SCAN_PERIODS = 1000
     }
 
     private var isActive = false
     private var stopTimer: Job? = null
+    private var periodicScan: Job? = null
     private var devices = HashMap<String, ScanResult>()
 
     private val scanCallback: ScanCallback = object : ScanCallback() {
@@ -37,9 +43,10 @@ class GattScanner (
                 return
             }
 
+            Log.d(TAG,"onScanResult: ${result}")
             if (result.device.name != null) {
-                // Log.d(TAG, "GattScanner, onScanResult()")
-                // Log.d(TAG, "    result: $result")
+                 Log.d(TAG, "GattScanner, onScanResult()")
+                 Log.d(TAG, "    result: $result")
                 devices[result.device.address] = result
             }
 
@@ -57,6 +64,7 @@ class GattScanner (
                 if (result == null) {
                     continue
                 }
+                Log.d(TAG,"onBatchScanResults: ${result}")
                 if (result.device.name != null) {
                     devices[result.device.address] = result
                 }
@@ -81,38 +89,74 @@ class GattScanner (
             devices.clear()
             showDiscoveredDevices()
 
-            val scanFilter = ScanFilter.Builder()
-                .setServiceUuid(ParcelUuid(GattServer.GATT_SERVICE_UUID))
-                .build()
-            val filters = mutableListOf<ScanFilter>(scanFilter)
-            val settings = ScanSettings.Builder()
-                .build();
-            scanner.startScan(filters, settings, scanCallback);
+            configureAndRunScanner()
             isActive = true
 
             stopTimer = CoroutineScope(Dispatchers.IO).launch {
-                delay(BLE_SCAN_PERIOD)
+                delay(BLE_SCAN_PERIOD_SINGLE)
                 stopScan()
             }
             CoroutineScope(Dispatchers.IO).launch {
                 notifier.showToast("BLE services discovery started. " +
-                        "Please wait for ${BLE_SCAN_PERIOD/1000} seconds ")
+                        "Please wait for ${BLE_SCAN_PERIOD_SINGLE/1000} seconds ")
             }
+        }
+    }
+
+    @SuppressLint("MissingPermission")
+    fun startScanPeriodic() {
+        Log.d(TAG, "GattScanner, startScan()")
+        if (!isActive) {
+
+            devices.clear()
+
+            configureAndRunScanner()
+            isActive = true
+
+            periodicScan = CoroutineScope(Dispatchers.IO).launch {
+                var cntr = 0
+                for (i in 0..NUM_SCAN_PERIODS) {
+                    delay(BLE_SCAN_PERIOD_MULTIPLE)
+                    Log.d(TAG, "startScanPeriodic, show found BLE nodes")
+                    if (cntr++ % 5 == 0) {
+                        withContext(Dispatchers.Main) {
+                            notifier.onDeviceListUpdate(devices.map{ DeviceInfo(it.value) })
+                            devices.clear()
+                        }
+                    }
+                }
+            }
+//            CoroutineScope(Dispatchers.IO).launch {
+//                notifier.showToast("BLE services discovery started. " +
+//                        "Please wait for ${BLE_SCAN_PERIOD/1000} seconds ")
+//            }
         }
     }
 
     @SuppressLint("MissingPermission")
     fun stopScan() {
         Log.d(TAG, "GattScanner, stopScan()")
-        if (stopTimer?.isActive == true) {
-            stopTimer!!.cancel()
-        }
+        stopTimer?.cancel()
+        periodicScan?.cancel()
 
         if (isActive) {
             scanner.stopScan(scanCallback)
             isActive = false
         }
         showDiscoveredDevices()
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun configureAndRunScanner() {
+        val scanFilter = ScanFilter.Builder()
+            .setServiceUuid(ParcelUuid(GattServer.GATT_SERVICE_UUID))
+            .build()
+        val filters = mutableListOf<ScanFilter>(scanFilter)
+//        val filters = mutableListOf<ScanFilter>()
+        val settings = ScanSettings.Builder()
+            .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+            .build();
+        scanner.startScan(filters, settings, scanCallback);
     }
 
     private fun showDiscoveredDevices() {

@@ -15,6 +15,12 @@ enum class InfoType {
     BLE
 }
 
+enum class ConnectionState {
+    DISCONNECTED,
+    CONNECTED
+}
+
+
 class WifiDirectServiceInfo (
     val instanceName: String,
     val registrationType: String,
@@ -26,10 +32,12 @@ class DeviceInfo {
     lateinit var deviceName: String
     lateinit var deviceInfo: String
     lateinit var deviceAddress: String
+    lateinit var state: ConnectionState
+
     var wifiP2pDevice: WifiP2pDevice? = null
     var bluetoothDevice: BluetoothDevice? = null
     var nsdServiceInfo: NsdServiceInfo? = null
-    var scanResult: ScanResult? = null
+    var bleScanResult: ScanResult? = null
 
     init {
         deviceName      = "not defined name"
@@ -38,7 +46,8 @@ class DeviceInfo {
         bluetoothDevice = null // "00", BluetoothDevice.ADDRESS_TYPE_UNKNOWN)
         bluetoothDevice = null
         nsdServiceInfo  = null
-        scanResult      = null
+        bleScanResult   = null
+        state           = ConnectionState.DISCONNECTED
     }
 
     constructor(name: String, info: String) {
@@ -48,7 +57,8 @@ class DeviceInfo {
         wifiP2pDevice   = null
         bluetoothDevice = null
         nsdServiceInfo  = null
-        scanResult      = null
+        bleScanResult   = null
+        state           = ConnectionState.DISCONNECTED
     }
 
     constructor(device: WifiP2pDevice) {
@@ -59,7 +69,8 @@ class DeviceInfo {
         wifiP2pDevice   = device
         bluetoothDevice = null
         nsdServiceInfo  = null
-        scanResult      = null
+        bleScanResult   = null
+        state           = ConnectionState.DISCONNECTED
     }
 
     constructor(service: WifiDirectServiceInfo): this(service.device) {
@@ -77,7 +88,8 @@ class DeviceInfo {
         wifiP2pDevice   = null
         bluetoothDevice = device
         nsdServiceInfo  = null
-        scanResult      = null
+        bleScanResult   = null
+        state           = ConnectionState.DISCONNECTED
     }
 
     constructor(info: NsdServiceInfo) {
@@ -88,7 +100,8 @@ class DeviceInfo {
         wifiP2pDevice   = null
         bluetoothDevice = null
         nsdServiceInfo  = info
-        scanResult      = null
+        bleScanResult   = null
+        state           = ConnectionState.DISCONNECTED
     }
 
     @SuppressLint("MissingPermission")
@@ -100,7 +113,8 @@ class DeviceInfo {
         wifiP2pDevice   = null
         bluetoothDevice = null
         nsdServiceInfo  = null
-        scanResult      = result
+        bleScanResult   = result
+        state           = ConnectionState.DISCONNECTED
     }
 }
 

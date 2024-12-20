@@ -2,36 +2,28 @@ package com.example.droid_share.data
 
 import android.annotation.SuppressLint
 import android.net.nsd.NsdServiceInfo
-import android.net.wifi.p2p.WifiP2pInfo
-import android.os.Build
 import android.util.Log
-import androidx.annotation.RequiresExtension
 import com.example.droid_share.NotificationInterface
 import com.example.droid_share.TxFilePackDescriptor
-import com.example.droid_share.data.BluetoothDataTransceiver.Companion
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.net.InetAddress
 
 class NsdDataTransceiver(
     private var notifier : NotificationInterface
-) {
+) : BaseDataTransceiver()
+{
     companion object {
         private const val TAG = "WifiDataTransceiver"
+        private const val CLIENT_CONNECTION_TIMEOUT_MS = 30000
     }
 
-    private var socketJob: Job? = null
-    private var rxJob: Job? = null
-
-    private var dataTransceiver: DataTransceiver? = null
-    private var nsdClientServer: NsdClientServer? = null
+    private var tcpP2pConnector: TcpP2pConnector? = null
 
     init {
         dataTransceiver = DataTransceiver(notifier)
-        nsdClientServer = NsdClientServer()
+        tcpP2pConnector = TcpP2pConnector()
     }
 
     fun isConnectionEstablished(): Boolean {
@@ -39,56 +31,67 @@ class NsdDataTransceiver(
         return isJobActive(rxJob)
     }
 
+    fun cancelDataTransmission() {
+        Log.d(TAG, "cancelDataTransmission")
+        dataTransceiver?.cancelDataTransmission()
+    }
+
+    suspend fun createSocket(serverFlag: Boolean, info: NsdServiceInfo) {
+        createSocket(serverFlag, info, TxFilePackDescriptor())
+    }
     @SuppressLint("NewApi")
     suspend fun createSocket(serverFlag: Boolean, info: NsdServiceInfo, txFilePack: TxFilePackDescriptor ) {
-        if (!nsdClientServer!!.isSocketCreated()) {
-            if (socketJob != null && socketJob!!.isActive) {
+        this.txFilePack = txFilePack.copy()
+
+        if (!tcpP2pConnector!!.isSocketCreated()) {
+            if (isJobActive(socketJob)) {
+                Log.d(TAG, "socketJob is active, skip createSocket function")
                 return
             }
+
             socketJob = CoroutineScope(Dispatchers.IO).launch {
                 if (serverFlag) {
-                    nsdClientServer!!.createServer(info.port);
+                    Log.d(TAG, "createSocket(), run createServer, info.port = ${info.port}")
+                    tcpP2pConnector!!.createServer(info.port);
                 } else {
                     val address = info.getHost()
-                    nsdClientServer!!.createClient(address, info.port);
+                    Log.d(TAG, "createClient(), run createServer, address = $address, info.port = ${info.port}")
+                    tcpP2pConnector!!.createClient(address, info.port, CLIENT_CONNECTION_TIMEOUT_MS);
                 }
             }
             socketJob!!.join()
             Log.d(TAG, "socketJob!!.join()")
+            Log.d(TAG, "nsdClientServer!!.isClientConnected() = ${tcpP2pConnector!!.isClientConnected()}")
 
-            if (nsdClientServer!!.isClientConnected()) {
+
+            if (tcpP2pConnector!!.isClientConnected()) {
                 Log.d(TAG, "wifiClientServer!!.isSocketCreated() = true")
 
                 dataTransceiver!!.setStreams(
-                    nsdClientServer!!.getInputStream(),
-                    nsdClientServer!!.getOutputStream()
+                    tcpP2pConnector!!.getInputStream(),
+                    tcpP2pConnector!!.getOutputStream()
                 )
+                CoroutineScope(Dispatchers.IO).launch {
+                    dataTransceiver!!.transmissionFlow(txFilePack)
+                }
                 rxJob = CoroutineScope(Dispatchers.IO).launch {
-                    dataTransceiver!!.doInBackground(txFilePack)
+                    dataTransceiver!!.receptionFlow()
                 }
             }
+        } else {
+            Log.d(TAG, "socket is not created")
         }
     }
 
     fun destroySocket() {
-        if (isJobActive(socketJob)) {
-            socketJob!!.cancel("Software stop file socket creation job")
-        }
-        if (isJobActive(rxJob)) {
-            rxJob!!.cancel("Software stop file reception job")
-        }
+        Log.d(TAG, "NsdDataTransceiver, destroySocket(), run stopActiveJobs()")
+        stopActiveJobs()
+        Log.d(TAG, "NsdDataTransceiver, destroySocket(), run dataTransceiver!!.shutdown()")
+        dataTransceiver!!.shutdown()
+        Log.d(TAG, "NsdDataTransceiver, destroySocket(), run tcpP2pConnector!!.shutdown()")
+        tcpP2pConnector!!.shutdown()
 
-        if (nsdClientServer!!.isSocketCreated()) {
-            dataTransceiver!!.shutdown()
-            nsdClientServer!!.shutdown()
-        }
-    }
-
-    private fun isJobActive(job: Job?): Boolean {
-        return (job != null) && job.isActive
-    }
-
-    suspend fun sendData(filePack: TxFilePackDescriptor) {
-        dataTransceiver!!.initiateDataTransmission(filePack)
+        dataTransceiver = DataTransceiver(notifier)
+        tcpP2pConnector = TcpP2pConnector()
     }
 }

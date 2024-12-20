@@ -10,52 +10,52 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
         <Button
-            android:id="@+id/btn_connect_dd"
+            android:id="@+id/btn_connect_dd_old"
             android:layout_width="150dp"
             android:layout_height="50dp"
             android:text="@string/connect_peer_button"
             android:visibility="visible" />
         <Button
-            android:id="@+id/btn_send_file_dd"
+            android:id="@+id/btn_send_file_dd_old"
             android:layout_width="150dp"
             android:layout_height="50dp"
             android:text="@string/get_file_button"
             android:visibility="visible" />
     </LinearLayout>
     <TextView
-        android:id="@+id/device_address"
+        android:id="@+id/device_address_dd_old"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="device_address ... "/>
     <TextView
-        android:id="@+id/device_info"
+        android:id="@+id/device_info_dd_old"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="device_info ... "/>
     <TextView
-        android:id="@+id/group_owner"
+        android:id="@+id/group_owner_dd_old"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="group_owner ... " />
     <TextView
-        android:id="@+id/group_ip"
+        android:id="@+id/group_ip_dd_old"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="group_ip ... "  />
     <LinearLayout
+        android:id="@+id/status_bar_dd_old"
         android:layout_width="match_parent"
-        android:id="@+id/status_bar"
         android:orientation="vertical"
         android:layout_gravity="bottom"
         android:layout_height="37dp"
         android:layout_marginBottom="3dp">
         <TextView
+            android:id="@+id/status_text_dd_old"
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
             android:layout_gravity="center"
             android:layout_margin="5dp"
             android:textColor="@android:color/white"
-            android:id="@+id/status_text"
             android:text="status_text"
             android:gravity="left">
         </TextView>
